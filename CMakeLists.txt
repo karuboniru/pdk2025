@@ -14,6 +14,7 @@ find_package(ROOT REQUIRED)
 file(
   GLOB
   SOURCES_EVENT
+  CONFIGURE_DEPENDS
   src/*.cxx
 )
 add_library(event OBJECT

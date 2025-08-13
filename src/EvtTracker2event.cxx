@@ -1,6 +1,6 @@
 #include "EvtTracker2event.h"
 #include "event.h"
-#include <TLorentzVector.h>
+#include <Math/LorentzVector.h>
 ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
   return df.Define("EventRecord",
                    [](int StdHepN, const ROOT::RVec<int> &StdHepPdg,
@@ -8,7 +8,7 @@ ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
                       const ROOT::RVec<double> &StdHepP4_) {
                      NeutrinoEvent e{};
                      for (int i = 0; i < StdHepN; i++) {
-                       TLorentzVector p4{
+                       ROOT::Math::PxPyPzEVector p4{
                            StdHepP4_[i * 4 + 1], StdHepP4_[i * 4 + 2],
                            StdHepP4_[i * 4 + 3], StdHepP4_[i * 4]};
                        switch (StdHepStatus[i]) {
@@ -25,6 +25,7 @@ ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
                          throw;
                        }
                      }
+                     e.finalize_and_decay_in_detector();
                      return e;
                    },
                    {"nparticles", "pdg", "status", "P"});

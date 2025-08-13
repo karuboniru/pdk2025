@@ -1,26 +1,50 @@
 #include "event.h"
+#include "local_rand.h"
+#include <Math/Boost.h>
+#include <Math/Vector3D.h>
+#include <Math/Vector3Dfwd.h>
+#include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
+#include <generator>
+#include <smear.h>
 #include <stdexcept>
 
 size_t NeutrinoEvent::count_in(int id) const { return in.count(id); }
 size_t NeutrinoEvent::count_out(int id) const { return out.count(id); }
 size_t NeutrinoEvent::count_post(int id) const { return post.count(id); }
+size_t NeutrinoEvent::count_det(int id) const { return in_detector.count(id); }
 
-void NeutrinoEvent::add_in(int id, const TLorentzVector &particle) {
+void NeutrinoEvent::add_in(int id, const ROOT::Math::PxPyPzEVector &particle) {
   in.insert({id, particle});
 }
-void NeutrinoEvent::add_out(int id, const TLorentzVector &particle) {
+void NeutrinoEvent::add_out(int id, const ROOT::Math::PxPyPzEVector &particle) {
   out.insert({id, particle});
 }
-void NeutrinoEvent::add_post(int id, const TLorentzVector &particle) {
+void NeutrinoEvent::add_post(int id,
+                             const ROOT::Math::PxPyPzEVector &particle) {
   post.insert({id, particle});
   ids_post.insert(id);
 }
 const std::set<int> &NeutrinoEvent::get_ids_post() const { return ids_post; }
+// const std::set<int> &NeutrinoEvent::get_ids_det() const { return
+// ids_detector; }
 
-const TLorentzVector &NeutrinoEvent::get_leading(int id) const {
-  const TLorentzVector *leading = nullptr;
+const ROOT::Math::PxPyPzEVector &NeutrinoEvent::get_leading(int id) const {
+  const ROOT::Math::PxPyPzEVector *leading = nullptr;
   for (const auto &p : post_range(id)) {
+    if (leading == nullptr || p.second.P() > leading->P()) {
+      leading = &p.second;
+    }
+  }
+  if (leading == nullptr) {
+    throw std::runtime_error("No leading particle found");
+  }
+  return *leading;
+}
+
+const ROOT::Math::PxPyPzEVector &NeutrinoEvent::get_leading_det(int id) const {
+  const ROOT::Math::PxPyPzEVector *leading = nullptr;
+  for (const auto &p : det_range(id)) {
     if (leading == nullptr || p.second.P() > leading->P()) {
       leading = &p.second;
     }
@@ -67,4 +91,56 @@ std::string NeutrinoEvent::get_channelname_no_nucleon() const {
   channel_name_no_nucleon =
       channel_name_no_nucleon.substr(0, channel_name_no_nucleon.size() - 1);
   return channel_name_no_nucleon;
+}
+
+ROOT::Math::PxPyPzEVector construct_4D(const auto &vec, double E) {
+  double px = vec.x();
+  double py = vec.y();
+  double pz = vec.z();
+  return ROOT::Math::PxPyPzEVector(px, py, pz, E);
+}
+
+std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>>
+gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
+  std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>> decay_products;
+  auto &&[pdg, momentum] = to_decay;
+  switch (pdg) {
+  case 111: {
+    // double mass_of_pion = momentum.M();
+    double mass_of_pi0 = TDatabasePDG::Instance()->GetParticle(111)->Mass();
+    double energy = mass_of_pi0 / 2.;
+    auto boost_vec = momentum.BoostToCM();
+    // the boost from CMS to LAB frame ( so the - sign )
+    auto the_boost = ROOT::Math::Boost(-boost_vec);
+    double costheta_in_CMS = get_thread_local_random().Uniform(0, 1);
+    double theta = acos(costheta_in_CMS);
+    double phi_in_CMS = get_thread_local_random().Uniform(0, 2 * M_PI);
+    ROOT::Math::Polar3DVector first_photon_momentum{energy, theta, phi_in_CMS};
+    auto another_photon_momentum = -first_photon_momentum;
+
+    auto first_photon = the_boost(construct_4D(first_photon_momentum, energy));
+    auto second_photon =
+        the_boost(construct_4D(another_photon_momentum, energy));
+
+    decay_products.push_back({22, first_photon});
+    decay_products.push_back({22, second_photon});
+  }
+  break;
+
+  default:
+    decay_products.emplace_back(to_decay);
+  }
+  return decay_products;
+}
+
+void NeutrinoEvent::finalize_and_decay_in_detector() {
+  for (auto &&[pdg, momentum_raw] : post) {
+    auto decayed_particles = gen_decay({pdg, momentum_raw});
+    for (auto &&[pdg, momentum] : decayed_particles) {
+      if (auto stg = GetSmearStrategy(pdg); stg) {
+        momentum = stg->do_smearing(momentum);
+      }
+      in_detector.insert({pdg, momentum});
+    }
+  }
 }
