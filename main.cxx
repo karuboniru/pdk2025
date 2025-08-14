@@ -57,7 +57,7 @@ void make_pie_plot(auto &data, std::string filename) {
 
 int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT();
+  ROOT::EnableImplicitMT(4);
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
   auto tracker_df = TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
@@ -178,28 +178,40 @@ int main(int argc, char **argv) {
                   },
                   {"rec_epi_system"});
 
-  ROOT::RDF::TH1DModel inv_mass_model{
-      "inv_mass_epip_system", "Invariant mass of e+pi- system", 100, 0.3, 1.0};
-
+  ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 100,
+                                      0.3, 1.0};
+  ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 100,
+                                      0.0, 1.0};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
-  // histograms.emplace_back(make_plot(df_all, inv_mass_model,
-  // "raw_mass_proton")); histograms.emplace_back(
-  //     make_plot(df_all, inv_mass_model, "raw_final_state_mass"));
+
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
     histograms.emplace_back(make_plot(df_all, inv_mass_model, varname));
+    histograms.emplace_back(
+        make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
   }
 
-  auto final_hists = std::to_array({"raw_final_state_mass", "raw_mass_proton",
-                                    "rec_pi0_M", "rec_mass_epi_system"});
-  for (const auto &varname : final_hists) {
+  for (const auto &varname :
+       std::to_array({"raw_final_state_p", "raw_proton_momentum"})) {
+    histograms.emplace_back(make_plot(df_all, momentum_model, varname));
+    histograms.emplace_back(
+        make_plot(all_with_vars, momentum_model, varname, "epi_"));
+  }
+
+  for (const auto &varname : {"rec_pi0_M", "rec_mass_epi_system"}) {
+    histograms.emplace_back(
+        make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
+  }
+
+  for (const auto &varname : {"rec_p_epi_system", "rec_pi0_p", "raw_pi0_p"}) {
     histograms.emplace_back(
         make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
   }
   all_with_vars.Snapshot("outtree", output_path + ".tree.root",
                          {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M",
                           "rec_pi0_p", "raw_pi0_p", "rec_mass_epi_system",
-                          "raw_pi0_mass", "raw_final_state_mass"});
+                          "rec_p_epi_system", "raw_pi0_mass",
+                          "raw_final_state_mass"});
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
