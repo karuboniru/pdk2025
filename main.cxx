@@ -198,14 +198,15 @@ int main(int argc, char **argv) {
         make_plot(all_with_vars, momentum_model, varname, "epi_"));
   }
 
-  for (const auto &varname : {"rec_pi0_M", "rec_mass_epi_system"}) {
-    histograms.emplace_back(
-        make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
-  }
+  histograms.emplace_back(make_plot(
+      all_with_vars, {"inv_mass_epip_system", "momentum", 100, 0.0, 0},
+      "rec_pi0_M", "epi_"));
+  histograms.emplace_back(
+      make_plot(all_with_vars, inv_mass_model, "rec_mass_epi_system", "epi_"));
 
   for (const auto &varname : {"rec_p_epi_system", "rec_pi0_p", "raw_pi0_p"}) {
     histograms.emplace_back(
-        make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
+        make_plot(all_with_vars, momentum_model, varname, "epi_"));
   }
   all_with_vars.Snapshot("outtree", output_path + ".tree.root",
                          {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M",
