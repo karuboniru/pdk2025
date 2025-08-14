@@ -89,6 +89,15 @@ int main(int argc, char **argv) {
                     return total_momentum;
                   },
                   {"EventRecord"})
+          .Define("raw_pi0_before_fsi",
+                  [](const NeutrinoEvent &event) {
+                    auto pi0 = event.out_range(111);
+                    // if (pi0.size() == 0) {
+                    //   return ROOT::Math::PxPyPzEVector{0, 0, 0, 0};
+                    // }
+                    return pi0.begin()->second.P();
+                  },
+                  {"EventRecord"})
           .Define("raw_final_state_mass",
                   [](const ROOT::Math::PxPyPzEVector &final_state_system) {
                     return final_state_system.M();
@@ -192,7 +201,8 @@ int main(int argc, char **argv) {
   }
 
   for (const auto &varname :
-       std::to_array({"raw_final_state_p", "raw_proton_momentum"})) {
+       std::to_array({"raw_final_state_p", "raw_proton_momentum",
+                      "raw_pi0_before_fsi"})) {
     histograms.emplace_back(make_plot(df_all, momentum_model, varname));
     histograms.emplace_back(
         make_plot(all_with_vars, momentum_model, varname, "epi_"));
