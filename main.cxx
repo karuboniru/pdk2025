@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
                     return proton.begin()->second.M();
                   },
                   {"EventRecord"})
-          .Define("final_state_mass",
+          .Define("final_state_system",
                   [](const NeutrinoEvent &event) {
                     const auto &post = event.get_post();
                     ROOT::Math::PxPyPzEVector total_momentum;
@@ -86,9 +86,19 @@ int main(int argc, char **argv) {
                          }) | std::views::values) {
                       total_momentum += p;
                     }
-                    return total_momentum.M();
+                    return total_momentum;
                   },
                   {"EventRecord"})
+          .Define("raw_final_state_mass",
+                  [](const ROOT::Math::PxPyPzEVector &final_state_system) {
+                    return final_state_system.M();
+                  },
+                  {"final_state_system"})
+          .Define("raw_final_state_p",
+                  [](const ROOT::Math::PxPyPzEVector &final_state_system) {
+                    return final_state_system.P();
+                  },
+                  {"final_state_system"})
           .Define(
               "channel_name",
               [](NeutrinoEvent &e) { return e.get_channelname_no_nucleon(); },
@@ -112,18 +122,19 @@ int main(int argc, char **argv) {
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
-                return event.count_det(-11) == 1 && event.count_det(22) == 2;
+                return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
+                       event.count_det(211) == 0 && event.count_det(-211) == 0;
               },
               {"EventRecord"})
           .Define("raw_pi0_mass",
                   [](const NeutrinoEvent &event) {
-                    auto p4pi0 = event.get_leading(111);
+                    auto &p4pi0 = event.get_leading(111);
                     return p4pi0.M();
                   },
                   {"EventRecord"})
           .Define("raw_pi0_p",
                   [](const NeutrinoEvent &event) {
-                    auto p4pi0 = event.get_leading(111);
+                    auto &p4pi0 = event.get_leading(111);
                     return p4pi0.P();
                   },
                   {"EventRecord"})
@@ -149,13 +160,23 @@ int main(int argc, char **argv) {
               "rec_pi0_p",
               [](const ROOT::Math::PxPyPzEVector &p4pi0) { return p4pi0.P(); },
               {"rec_pi0"})
-          .Define("final_state_mass_epip_system",
+          .Define("rec_epi_system",
                   [](const NeutrinoEvent &event,
                      const ROOT::Math::PxPyPzEVector &p4pi0) {
-                    auto p4e = event.get_leading(-11);
-                    return (p4e + p4pi0).M();
+                    const auto &p4e = event.get_leading_det(-11);
+                    return (p4e + p4pi0);
                   },
-                  {"EventRecord", "rec_pi0"});
+                  {"EventRecord", "rec_pi0"})
+          .Define("rec_mass_epi_system",
+                  [](const ROOT::Math::PxPyPzEVector &epi_system) {
+                    return epi_system.M();
+                  },
+                  {"rec_epi_system"})
+          .Define("rec_p_epi_system",
+                  [](const ROOT::Math::PxPyPzEVector &epi_system) {
+                    return epi_system.P();
+                  },
+                  {"rec_epi_system"});
 
   ROOT::RDF::TH1DModel inv_mass_model{
       "inv_mass_epip_system", "Invariant mass of e+pi- system", 100, 0.3, 1.0};
@@ -163,26 +184,22 @@ int main(int argc, char **argv) {
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
   // histograms.emplace_back(make_plot(df_all, inv_mass_model,
   // "raw_mass_proton")); histograms.emplace_back(
-  //     make_plot(df_all, inv_mass_model, "final_state_mass"));
+  //     make_plot(df_all, inv_mass_model, "raw_final_state_mass"));
   for (const auto &varname :
-       std::to_array({"raw_mass_proton", "final_state_mass"})) {
+       std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
     histograms.emplace_back(make_plot(df_all, inv_mass_model, varname));
   }
 
-  histograms.emplace_back(
-      make_plot(df_all, {"", "", 100, 0., 0.}, "raw_proton_momentum"));
-
-  auto final_hists =
-      std::to_array({"final_state_mass", "raw_mass_proton", "rec_pi0_M",
-                     "final_state_mass_epip_system"});
+  auto final_hists = std::to_array({"raw_final_state_mass", "raw_mass_proton",
+                                    "rec_pi0_M", "rec_mass_epi_system"});
   for (const auto &varname : final_hists) {
     histograms.emplace_back(
         make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
   }
   all_with_vars.Snapshot("outtree", output_path + ".tree.root",
-                         {"raw_mass_proton", "rec_pi0_M", "rec_pi0_p",
-                          "raw_pi0_p", "final_state_mass_epip_system",
-                          "raw_pi0_mass"});
+                         {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M",
+                          "rec_pi0_p", "raw_pi0_p", "rec_mass_epi_system",
+                          "raw_pi0_mass", "raw_final_state_mass"});
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
