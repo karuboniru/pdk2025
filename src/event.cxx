@@ -42,10 +42,13 @@ const ROOT::Math::PxPyPzEVector &NeutrinoEvent::get_leading(int id) const {
   return *leading;
 }
 
-const ROOT::Math::PxPyPzEVector &NeutrinoEvent::get_leading_det(int id) const {
-  const ROOT::Math::PxPyPzEVector *leading = nullptr;
+const std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector> &
+NeutrinoEvent::get_leading_det(int id) const {
+
+  const std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>
+      *leading = nullptr;
   for (const auto &p : det_range(id)) {
-    if (leading == nullptr || p.second.P() > leading->P()) {
+    if (leading == nullptr || p.second.second.P() > leading->second.P()) {
       leading = &p.second;
     }
   }
@@ -133,13 +136,12 @@ gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
 }
 
 void NeutrinoEvent::finalize_and_decay_in_detector() {
-  for (auto &&[pdg, momentum_raw] : post) {
+  for (const auto &[pdg, momentum_raw] : post) {
     auto decayed_particles = gen_decay({pdg, momentum_raw});
     for (auto &&[pdg, momentum] : decayed_particles) {
-      before_smear.insert({pdg, momentum});
       auto stg = GetSmearStrategy(pdg);
       auto smared_momentum = stg ? stg->do_smearing(momentum) : momentum;
-      in_detector.insert({pdg, smared_momentum});
+      in_detector.insert({pdg, {momentum, smared_momentum}});
     }
   }
 }

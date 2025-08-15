@@ -26,6 +26,8 @@ private:
 template <typename U>
 equal_range_iterable(U &&, int) -> equal_range_iterable<U>;
 
+using pair_momentum_t = std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
+
 class NeutrinoEvent {
 public:
   [[nodiscard]] size_t count_in(int) const;
@@ -46,9 +48,6 @@ public:
   [[nodiscard]] auto post_range(int id) const {
     return equal_range_iterable(post, id);
   }
-  [[nodiscard]] auto before_smear_range(int id) const {
-    return equal_range_iterable(before_smear, id);
-  }
   [[nodiscard]] auto det_range(int id) const {
     return equal_range_iterable(in_detector, id);
   }
@@ -56,14 +55,13 @@ public:
   [[nodiscard]] auto &get_in() const { return in; }
   [[nodiscard]] auto &get_out() const { return out; }
   [[nodiscard]] auto &get_post() const { return post; }
-  [[nodiscard]] auto &get_before_smear() const { return before_smear; }
   [[nodiscard]] auto &get_det() const { return in_detector; }
 
   const std::set<int> &get_ids_post() const;
   // const std::set<int> &get_ids_det() const;
 
   const ROOT::Math::PxPyPzEVector &get_leading(int id) const;
-  const ROOT::Math::PxPyPzEVector &get_leading_det(int id) const;
+  const pair_momentum_t &get_leading_det(int id) const;
 
   [[nodiscard]] std::string get_channelname_no_nucleon() const;
   [[nodiscard]] std::string get_channelname() const;
@@ -71,7 +69,9 @@ public:
   void finalize_and_decay_in_detector();
 
 private:
-  std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post,
-      before_smear, in_detector;
+  std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post;
+  std::unordered_multimap<
+      int, pair_momentum_t>
+      in_detector;
   std::set<int> ids_post;
 };

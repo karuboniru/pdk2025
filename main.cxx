@@ -5,6 +5,7 @@
 #include <format>
 #include <iostream>
 #include <print>
+#include <ranges>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,19 @@ ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
   return df.Histo1D(model, varname);
 }
 
+auto iter_pair(auto &iter_range) {
+  auto en = iter_range | std::views::enumerate;
+  return std::views::cartesian_product(en, en) |
+         std::views::filter([](const auto &pair) {
+           auto [first, second] = pair;
+           return std::get<0>(first) < std::get<0>(second);
+         }) |
+         std::views::transform([](const auto &pair) {
+           auto [first, second] = pair;
+           return std::make_pair(std::get<1>(first), std::get<1>(second));
+         });
+}
+
 void make_pie_plot(auto &data, std::string filename) {
   // constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
   //                                   kGreen, kGray, kTeal,   kPink};
@@ -55,7 +69,12 @@ void make_pie_plot(auto &data, std::string filename) {
   canvas->SaveAs(filename.c_str());
 }
 
+pair_momentum_t operator+(const pair_momentum_t &a, const pair_momentum_t &b) {
+  return {a.first + b.first, a.second + b.second};
+}
+
 int main(int argc, char **argv) {
+  constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(4);
   auto [input_files, output_path] = parse_command_line(argc, argv);
@@ -127,7 +146,7 @@ int main(int argc, char **argv) {
       {"channel_name"}, std::map<std::string, std::size_t>{});
   auto event_count = df_all.Count();
 
-  auto all_with_vars =
+  auto all_with_particles =
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
@@ -135,154 +154,187 @@ int main(int argc, char **argv) {
                        event.count_det(211) == 0 && event.count_det(-211) == 0;
               },
               {"EventRecord"})
-          .Define("raw_electron_momentum",
-                  [](const NeutrinoEvent &event) {
-                    auto electron = event.post_range(-11);
-                    return electron.begin()->second.P();
-                  },
-                  {"EventRecord"})
-          .Define("smear_electron_momentum",
+          .Define("electron",
                   [](const NeutrinoEvent &event) {
                     auto electron = event.det_range(-11);
-                    return electron.begin()->second.P();
+                    return electron.begin()->second;
                   },
                   {"EventRecord"})
-          .Define("angle_2gamma_no_smear",
-                  [](const NeutrinoEvent &event) {
-                    const auto &detector = event.get_before_smear();
-                    if (detector.count(22) < 2) {
-                      return -1.0; // Not enough photons
+          .Define("photons",
+                  [](const NeutrinoEvent &event)
+                      -> std::pair<pair_momentum_t, pair_momentum_t> {
+                    auto photons = event.det_range(22);
+                    if (photons.size() < 2) {
+                      throw std::runtime_error(
+                          "Not enough photons in the event");
                     }
-                    auto it = detector.equal_range(22);
-                    auto p4gamma1 = it.first->second;
-                    auto p4gamma2 = (++it.first)->second;
-                    auto costheta =
-                        p4gamma1.Vect().Unit().Dot(p4gamma2.Vect().Unit());
-                    return std::acos(costheta) * 180.0 /
-                           M_PI; // Convert to degrees
-                  },
-                  {"EventRecord"})
-          .Define("angle_2gamma_after_smear",
-                  [](const NeutrinoEvent &event) {
-                    const auto &detector = event.get_det();
-                    if (detector.count(22) < 2) {
-                      return -1.0; // Not enough photons
-                    }
-                    auto it = detector.equal_range(22);
-                    auto p4gamma1 = it.first->second;
-                    auto p4gamma2 = (++it.first)->second;
-                    auto costheta =
-                        p4gamma1.Vect().Unit().Dot(p4gamma2.Vect().Unit());
-                    return std::acos(costheta) * 180.0 /
-                           M_PI; // Convert to degrees
-                  },
-                  {"EventRecord"})
-          .Define("raw_pi0_mass",
-                  [](const NeutrinoEvent &event) {
-                    auto &p4pi0 = event.get_leading(111);
-                    return p4pi0.M();
-                  },
-                  {"EventRecord"})
-          .Define("angle_epi0_truth",
-                  [](const NeutrinoEvent &event) {
-                    const auto &p4e = event.get_leading(-11);
-                    const auto &p4pi0 = event.get_leading(111);
-                    auto costheta = p4e.Vect().Unit().Dot(p4pi0.Vect().Unit());
-                    return std::acos(costheta) * 180.0 / M_PI;
-                  },
-                  {"EventRecord"})
-          .Define("raw_pi0_p",
-                  [](const NeutrinoEvent &event) {
-                    auto &p4pi0 = event.get_leading(111);
-                    return p4pi0.P();
-                  },
-                  {"EventRecord"})
-          .Define("rec_pi0",
-                  [](const NeutrinoEvent &event) {
-                    const auto &detector = event.get_det();
-                    ROOT::Math::PxPyPzEVector total_momentum;
-                    for (const auto &p :
-                         detector | std::views::filter([](const auto &entry) {
-                           auto pdg = entry.first;
-                           return pdg == 22;
-                         }) | std::views::values) {
-                      total_momentum += p;
-                    }
-                    return total_momentum;
-                  },
-                  {"EventRecord"})
-          .Define(
-              "rec_pi0_M",
-              [](const ROOT::Math::PxPyPzEVector &p4pi0) { return p4pi0.M(); },
-              {"rec_pi0"})
-          .Define(
-              "rec_pi0_p",
-              [](const ROOT::Math::PxPyPzEVector &p4pi0) { return p4pi0.P(); },
-              {"rec_pi0"})
-          .Define("angle_epi0_rec",
-                  [](const NeutrinoEvent &event,
-                     const ROOT::Math::PxPyPzEVector &p4pi0) {
-                    const auto &p4e = event.get_leading_det(-11);
-                    auto costheta = p4e.Vect().Unit().Dot(p4pi0.Vect().Unit());
-                    return std::acos(costheta) * 180.0 / M_PI;
-                  },
-                  {"EventRecord", "rec_pi0"})
-          .Define("rec_epi_system",
-                  [](const NeutrinoEvent &event,
-                     const ROOT::Math::PxPyPzEVector &p4pi0) {
-                    const auto &p4e = event.get_leading_det(-11);
-                    return (p4e + p4pi0);
-                  },
-                  {"EventRecord", "rec_pi0"})
-          .Define("rec_mass_epi_system",
-                  [](const ROOT::Math::PxPyPzEVector &epi_system) {
-                    return epi_system.M();
-                  },
-                  {"rec_epi_system"})
-          .Define("rec_p_epi_system",
-                  [](const ROOT::Math::PxPyPzEVector &epi_system) {
-                    return epi_system.P();
-                  },
-                  {"rec_epi_system"});
+                    auto photon1 = photons.begin()->second;
+                    auto photon2 = (++photons.begin())->second;
 
-  ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 100,
-                                      0.3, 1.0};
-  ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 100,
+                    if (photon1.second.P() < photon2.second.P()) {
+                      // return std::make_pair(photon1, photon2);
+                      std::swap(photon1, photon2);
+                    }
+                    return std::make_pair(photon1, photon2);
+                  },
+                  {"EventRecord"})
+          .Define(
+              "lead_photon",
+              [](const std::pair<pair_momentum_t, pair_momentum_t> &photons) {
+                return photons.first;
+              },
+              {"photons"})
+          .Define(
+              "sublead_photon",
+              [](const std::pair<pair_momentum_t, pair_momentum_t> &photons) {
+                return photons.second;
+              },
+              {"photons"})
+          .Define("pi0_system",
+                  [](const pair_momentum_t &leading_photon,
+                     const pair_momentum_t &subleading_photon) {
+                    return leading_photon + subleading_photon;
+                  },
+                  {"lead_photon", "sublead_photon"})
+          .Define("epi_system",
+                  [](const pair_momentum_t &electron,
+                     const pair_momentum_t &pi0_system) {
+                    return electron + pi0_system;
+                  },
+                  {"electron", "pi0_system"});
+  ROOT::RDF::RNode all_with_vars = all_with_particles;
+  auto name_p4_pairs =
+      std::to_array({"electron", "lead_photon", "sublead_photon", "pi0_system",
+                     "epi_system"});
+  std::vector<std::string> to_snapshot{"raw_proton_momentum", "raw_mass_proton",
+                                       "raw_pi0_before_fsi"},
+      mass_list{"raw_mass_proton"},
+      p_list{"raw_pi0_before_fsi", "raw_proton_momentum"};
+
+  for (const auto &name : name_p4_pairs) {
+    all_with_vars = all_with_vars
+                        .Define(std::format("true_{}_p", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.first.P();
+                                },
+                                {name})
+                        .Define(std::format("true_{}_m", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.first.M();
+                                },
+                                {name})
+                        .Define(std::format("true_{}_theta", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.first.Theta() * to_deg;
+                                },
+                                {name})
+                        .Define(std::format("true_{}_phi", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.first.Phi() * to_deg;
+                                },
+                                {name})
+                        .Define(std::format("smared_{}_p", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.second.P();
+                                },
+                                {name})
+                        .Define(std::format("smared_{}_m", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.second.M();
+                                },
+                                {name})
+                        .Define(std::format("smared_{}_theta", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.second.Theta() * to_deg;
+                                },
+                                {name})
+                        .Define(std::format("smared_{}_phi", name),
+                                [](const pair_momentum_t &p4_pair) {
+                                  return p4_pair.second.Phi() * to_deg;
+                                },
+                                {name});
+    for (const auto &suffix : std::to_array({"p", "m", "theta", "phi"})) {
+      to_snapshot.push_back(std::format("true_{}_{}", name, suffix));
+      to_snapshot.push_back(std::format("smared_{}_{}", name, suffix));
+    }
+    mass_list.push_back(std::format("true_{}_m", name));
+    mass_list.push_back(std::format("smared_{}_m", name));
+    p_list.push_back(std::format("true_{}_p", name));
+    p_list.push_back(std::format("smared_{}_p", name));
+  }
+
+  for (auto &&[var1, var2] : iter_pair(name_p4_pairs)) {
+    all_with_vars =
+        all_with_vars
+            .Define(std::format("true_{}_{}_angle", var1, var2),
+                    [](const pair_momentum_t &p4_pair1,
+                       const pair_momentum_t &p4_pair2) {
+                      return std::acos(p4_pair1.first.Vect().Unit().Dot(
+                                 p4_pair2.first.Vect().Unit())) *
+                             to_deg;
+                    },
+                    {var1, var2})
+            .Define(std::format("smared_{}_{}_angle", var1, var2),
+                    [](const pair_momentum_t &p4_pair1,
+                       const pair_momentum_t &p4_pair2) {
+                      return std::acos(p4_pair1.second.Vect().Unit().Dot(
+                                 p4_pair2.second.Vect().Unit())) *
+                             to_deg;
+                    },
+                    {var1, var2});
+    to_snapshot.push_back(std::format("true_{}_{}_angle", var1, var2));
+    to_snapshot.push_back(std::format("smared_{}_{}_angle", var1, var2));
+  }
+
+  ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
+                                      0.0, 1.0};
+  ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 400,
                                       0.0, 1.0};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
 
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
     histograms.emplace_back(make_plot(df_all, inv_mass_model, varname));
-    histograms.emplace_back(
-        make_plot(all_with_vars, inv_mass_model, varname, "epi_"));
   }
 
   for (const auto &varname :
        std::to_array({"raw_final_state_p", "raw_proton_momentum",
                       "raw_pi0_before_fsi"})) {
     histograms.emplace_back(make_plot(df_all, momentum_model, varname));
-    histograms.emplace_back(
-        make_plot(all_with_vars, momentum_model, varname, "epi_"));
   }
 
-  histograms.emplace_back(make_plot(
-      all_with_vars, {"inv_mass_epip_system", "momentum", 100, 0.0, 0},
-      "rec_pi0_M", "epi_"));
-  histograms.emplace_back(
-      make_plot(all_with_vars, inv_mass_model, "rec_mass_epi_system", "epi_"));
-
-  for (const auto &varname : {"rec_p_epi_system", "rec_pi0_p", "raw_pi0_p"}) {
+  for (auto &p_var : p_list) {
     histograms.emplace_back(
-        make_plot(all_with_vars, momentum_model, varname, "epi_"));
+        make_plot(all_with_vars, momentum_model, p_var, "epi_"));
   }
-  all_with_vars.Snapshot(
-      "outtree", output_path + ".tree.root",
-      {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M", "rec_pi0_p",
-       "raw_pi0_p", "rec_mass_epi_system", "rec_p_epi_system", "raw_pi0_mass",
-       "raw_final_state_mass", "angle_epi0_rec", "angle_epi0_truth",
-       "angle_2gamma_after_smear", "angle_2gamma_no_smear",
-       "raw_electron_momentum", "smear_electron_momentum"});
+
+  for (auto &m_var : mass_list) {
+    histograms.emplace_back(
+        make_plot(all_with_vars, inv_mass_model, m_var, "epi_"));
+  }
+
+  all_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
+
+  // histograms.emplace_back(make_plot(
+  //     all_with_vars, {"inv_mass_epip_system", "momentum", 100, 0.0, 0},
+  //     "rec_pi0_M", "epi_"));
+  // histograms.emplace_back(
+  //     make_plot(all_with_vars, inv_mass_model, "rec_mass_epi_system",
+  //     "epi_"));
+
+  // for (const auto &varname : {"rec_p_epi_system", "rec_pi0_p", "raw_pi0_p"})
+  // {
+  //   histograms.emplace_back(
+  //       make_plot(all_with_vars, momentum_model, varname, "epi_"));
+  // }
+  // all_with_vars.Snapshot(
+  //     "outtree", output_path + ".tree.root",
+  //     {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M", "rec_pi0_p",
+  //      "raw_pi0_p", "rec_mass_epi_system", "rec_p_epi_system",
+  //      "raw_pi0_mass", "raw_final_state_mass", "angle_epi0_rec",
+  //      "angle_epi0_truth", "angle_2gamma_after_smear",
+  //      "angle_2gamma_no_smear", "raw_electron_momentum",
+  //      "smear_electron_momentum"});
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
