@@ -124,8 +124,7 @@ gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
 
     decay_products.push_back({22, first_photon});
     decay_products.push_back({22, second_photon});
-  }
-  break;
+  } break;
 
   default:
     decay_products.emplace_back(to_decay);
@@ -137,10 +136,10 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
   for (auto &&[pdg, momentum_raw] : post) {
     auto decayed_particles = gen_decay({pdg, momentum_raw});
     for (auto &&[pdg, momentum] : decayed_particles) {
-      if (auto stg = GetSmearStrategy(pdg); stg) {
-        momentum = stg->do_smearing(momentum);
-      }
-      in_detector.insert({pdg, momentum});
+      before_smear.insert({pdg, momentum});
+      auto stg = GetSmearStrategy(pdg);
+      auto smared_momentum = stg ? stg->do_smearing(momentum) : momentum;
+      in_detector.insert({pdg, smared_momentum});
     }
   }
 }

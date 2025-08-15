@@ -135,10 +135,60 @@ int main(int argc, char **argv) {
                        event.count_det(211) == 0 && event.count_det(-211) == 0;
               },
               {"EventRecord"})
+          .Define("raw_electron_momentum",
+                  [](const NeutrinoEvent &event) {
+                    auto electron = event.det_range(-11);
+                    return electron.begin()->second.P();
+                  },
+                  {"EventRecord"})
+          .Define("smear_electron_momentum",
+                  [](const NeutrinoEvent &event) {
+                    auto electron = event.det_range(-11);
+                    return electron.begin()->second.P();
+                  },
+                  {"EventRecord"})
+          .Define("angle_2gamma_no_smear",
+                  [](const NeutrinoEvent &event) {
+                    const auto &detector = event.get_before_smear();
+                    if (detector.count(22) < 2) {
+                      return -1.0; // Not enough photons
+                    }
+                    auto it = detector.equal_range(22);
+                    auto p4gamma1 = it.first->second;
+                    auto p4gamma2 = (++it.first)->second;
+                    auto costheta =
+                        p4gamma1.Vect().Unit().Dot(p4gamma2.Vect().Unit());
+                    return std::acos(costheta) * 180.0 /
+                           M_PI; // Convert to degrees
+                  },
+                  {"EventRecord"})
+          .Define("angle_2gamma_after_smear",
+                  [](const NeutrinoEvent &event) {
+                    const auto &detector = event.get_det();
+                    if (detector.count(22) < 2) {
+                      return -1.0; // Not enough photons
+                    }
+                    auto it = detector.equal_range(22);
+                    auto p4gamma1 = it.first->second;
+                    auto p4gamma2 = (++it.first)->second;
+                    auto costheta =
+                        p4gamma1.Vect().Unit().Dot(p4gamma2.Vect().Unit());
+                    return std::acos(costheta) * 180.0 /
+                           M_PI; // Convert to degrees
+                  },
+                  {"EventRecord"})
           .Define("raw_pi0_mass",
                   [](const NeutrinoEvent &event) {
                     auto &p4pi0 = event.get_leading(111);
                     return p4pi0.M();
+                  },
+                  {"EventRecord"})
+          .Define("angle_epi0_truth",
+                  [](const NeutrinoEvent &event) {
+                    const auto &p4e = event.get_leading(-11);
+                    const auto &p4pi0 = event.get_leading(111);
+                    auto costheta = p4e.Vect().Unit().Dot(p4pi0.Vect().Unit());
+                    return std::acos(costheta) * 180.0 / M_PI;
                   },
                   {"EventRecord"})
           .Define("raw_pi0_p",
@@ -169,6 +219,14 @@ int main(int argc, char **argv) {
               "rec_pi0_p",
               [](const ROOT::Math::PxPyPzEVector &p4pi0) { return p4pi0.P(); },
               {"rec_pi0"})
+          .Define("angle_epi0_rec",
+                  [](const NeutrinoEvent &event,
+                     const ROOT::Math::PxPyPzEVector &p4pi0) {
+                    const auto &p4e = event.get_leading_det(-11);
+                    auto costheta = p4e.Vect().Unit().Dot(p4pi0.Vect().Unit());
+                    return std::acos(costheta) * 180.0 / M_PI;
+                  },
+                  {"EventRecord", "rec_pi0"})
           .Define("rec_epi_system",
                   [](const NeutrinoEvent &event,
                      const ROOT::Math::PxPyPzEVector &p4pi0) {
@@ -218,11 +276,13 @@ int main(int argc, char **argv) {
     histograms.emplace_back(
         make_plot(all_with_vars, momentum_model, varname, "epi_"));
   }
-  all_with_vars.Snapshot("outtree", output_path + ".tree.root",
-                         {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M",
-                          "rec_pi0_p", "raw_pi0_p", "rec_mass_epi_system",
-                          "rec_p_epi_system", "raw_pi0_mass",
-                          "raw_final_state_mass"});
+  all_with_vars.Snapshot(
+      "outtree", output_path + ".tree.root",
+      {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M", "rec_pi0_p",
+       "raw_pi0_p", "rec_mass_epi_system", "rec_p_epi_system", "raw_pi0_mass",
+       "raw_final_state_mass", "angle_epi0_rec", "angle_epi0_truth",
+       "angle_2gamma_after_smear", "angle_2gamma_no_smear",
+       "raw_electron_momentum", "smear_electron_momentum"});
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
