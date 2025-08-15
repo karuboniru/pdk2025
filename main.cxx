@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
               {"EventRecord"})
           .Define("raw_electron_momentum",
                   [](const NeutrinoEvent &event) {
-                    auto electron = event.det_range(-11);
+                    auto electron = event.post_range(-11);
                     return electron.begin()->second.P();
                   },
                   {"EventRecord"})
