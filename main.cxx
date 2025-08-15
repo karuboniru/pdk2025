@@ -250,5 +250,5 @@ int main(int argc, char **argv) {
               entries_to_plot.begin(), entries_to_plot.end(), 0,
               [](size_t sum, const auto &pair) { return sum + pair.second; }));
   std::println("Entries to plot: {}", entries_to_plot);
-  make_pie_plot(entries_to_plot, output_path + ".pie.pdf");
+  make_pie_plot(entries_to_plot, output_path + ".pie.eps");
 }

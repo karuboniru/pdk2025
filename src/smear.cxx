@@ -125,11 +125,11 @@ ISmearStrategy *GetSmearStrategy(int pdg_particle) {
 
 void initializeGaussianSmearStrategy() {
   smear_strategies[11] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.06, 2.91);
+      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
   smear_strategies[-11] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.06, 2.91);
+      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
   smear_strategies[13] =
       std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.02, 1.75);
   smear_strategies[22] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.06, 1.75);
+      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
 }
