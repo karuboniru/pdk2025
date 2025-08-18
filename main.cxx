@@ -1,3 +1,4 @@
+#include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
 #include <ROOT/RVec.hxx>
 #include <TROOT.h>
@@ -86,7 +87,7 @@ int main(int argc, char **argv) {
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
   auto tracker_df = TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
-
+  ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all =
       tracker_df
           .Define("raw_proton_momentum",
