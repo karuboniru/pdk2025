@@ -3,7 +3,6 @@
 #include <TROOT.h>
 #include <array>
 #include <format>
-#include <iostream>
 #include <print>
 #include <ranges>
 #include <string>
@@ -45,16 +44,14 @@ auto iter_pair(auto &iter_range) {
          });
 }
 
-void make_pie_plot(auto &data, std::string filename) {
-  // constexpr std::array<int, 10> col{kRed,   kBlue, kViolet, kYellow, kOrange,
-  //                                   kGreen, kGray, kTeal,   kPink};
+void make_pie_plot(auto &data, const std::string &filename) {
   auto col =
       std::to_array({kP6Blue, kP6Yellow, kP6Red, kP6Grape, kP6Gray, kP6Violet});
   auto pie = std::make_unique<TPie>("final state", "final state", data.size());
   for (size_t i = 0; i < data.size(); ++i) {
     pie->SetEntryVal(i, data[i].second);
     pie->SetEntryFillColor(i, col[i % col.size()]);
-    pie->SetEntryFillStyle(i, 1000 + i / col.size());
+    pie->SetEntryFillStyle(i, 1000 + (i / col.size()));
     pie->SetEntryLabel(i, data[i].first.c_str());
   }
   auto canvas = std::make_unique<TCanvas>("canvas", "canvas", 700, 700);

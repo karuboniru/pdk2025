@@ -26,7 +26,8 @@ private:
 template <typename U>
 equal_range_iterable(U &&, int) -> equal_range_iterable<U>;
 
-using pair_momentum_t = std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
+using pair_momentum_t =
+    std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
 
 class NeutrinoEvent {
 public:
@@ -70,8 +71,6 @@ public:
 
 private:
   std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post;
-  std::unordered_multimap<
-      int, pair_momentum_t>
-      in_detector;
+  std::unordered_multimap<int, pair_momentum_t> in_detector;
   std::set<int> ids_post;
 };

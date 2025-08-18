@@ -5,7 +5,6 @@
 #include <Math/Vector3Dfwd.h>
 #include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
-#include <generator>
 #include <smear.h>
 #include <stdexcept>
 

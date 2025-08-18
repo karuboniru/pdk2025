@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Math/Vector4Dfwd.h>
-#include <memory>
 
 class TRandom3;
 TRandom3 &get_thread_local_random();

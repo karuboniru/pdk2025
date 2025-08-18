@@ -9,8 +9,8 @@ ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
                      NeutrinoEvent e{};
                      for (int i = 0; i < StdHepN; i++) {
                        ROOT::Math::PxPyPzEVector p4{
-                           StdHepP4_[i * 4 + 1], StdHepP4_[i * 4 + 2],
-                           StdHepP4_[i * 4 + 3], StdHepP4_[i * 4]};
+                           StdHepP4_[(i * 4) + 1], StdHepP4_[(i * 4) + 2],
+                           StdHepP4_[(i * 4) + 3], StdHepP4_[(i * 4UL)]};
                        switch (StdHepStatus[i]) {
                        case 0:
                          e.add_in(StdHepPdg[i], p4);

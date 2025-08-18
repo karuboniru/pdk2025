@@ -31,7 +31,7 @@ configuration parse_command_line(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  if (vm.count("help")) {
+  if (vm.contains("help")) {
     std::cout << desc << "\n";
     exit(EXIT_SUCCESS);
   }
