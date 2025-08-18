@@ -5,6 +5,7 @@
 #include <format>
 #include <print>
 #include <ranges>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,13 @@ ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
   model.fName = prefix + varname;
   model.fTitle = prefix + varname;
   return df.Histo1D(model, varname);
+}
+
+std::string normalize_name(std::string orig) {
+  std::replace(orig.begin(), orig.end(), ' ', '_');
+  orig = std::regex_replace(orig, std::regex("\\-"), "_minus");
+  orig = std::regex_replace(orig, std::regex("\\+"), "_positive");
+  return "h_" + orig;
 }
 
 auto iter_pair(auto &iter_range) {
@@ -74,6 +82,7 @@ int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(4);
+  TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
   auto tracker_df = TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
@@ -108,9 +117,6 @@ int main(int argc, char **argv) {
           .Define("raw_pi0_before_fsi",
                   [](const NeutrinoEvent &event) {
                     auto pi0 = event.out_range(111);
-                    // if (pi0.size() == 0) {
-                    //   return ROOT::Math::PxPyPzEVector{0, 0, 0, 0};
-                    // }
                     return pi0.begin()->second.P();
                   },
                   {"EventRecord"})
@@ -140,7 +146,38 @@ int main(int argc, char **argv) {
           }
         }
       },
-      {"channel_name"}, std::map<std::string, std::size_t>{});
+      "channel_name", std::map<std::string, std::size_t>{});
+  auto make_hist = []() { return TH1D("", "", 400, 0, 1.0); };
+  auto pi0p_per_channel =
+      df_all
+          .Define("tmp_data_",
+                  [](const std::string &channel, double p) {
+                    return std::make_pair(channel, p);
+                  },
+                  {"channel_name", "raw_pi0_before_fsi"})
+          .Aggregate(
+              [&](std::map<std::string, TH1D> &data,
+                  const std::pair<std::string, double> &col) {
+                auto iter = data.find(col.first);
+                if (iter == data.end()) {
+                  iter = data.emplace(col.first, make_hist()).first;
+                }
+                iter->second.Fill(col.second);
+              },
+              [&](std::vector<std::map<std::string, TH1D>> &to_merge) {
+                auto &target = to_merge[0];
+                for (auto &item : to_merge | std::views::drop(1)) {
+                  for (auto &[key, hist] : item) {
+                    auto iter = target.find(key);
+                    if (iter == target.end()) {
+                      iter = target.emplace(key, make_hist()).first;
+                    }
+                    iter->second.Add(&hist);
+                  }
+                }
+              },
+              "tmp_data_", std::map<std::string, TH1D>{});
+
   auto event_count = df_all.Count();
 
   auto all_with_particles =
@@ -312,31 +349,15 @@ int main(int argc, char **argv) {
 
   all_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
-  // histograms.emplace_back(make_plot(
-  //     all_with_vars, {"inv_mass_epip_system", "momentum", 100, 0.0, 0},
-  //     "rec_pi0_M", "epi_"));
-  // histograms.emplace_back(
-  //     make_plot(all_with_vars, inv_mass_model, "rec_mass_epi_system",
-  //     "epi_"));
-
-  // for (const auto &varname : {"rec_p_epi_system", "rec_pi0_p", "raw_pi0_p"})
-  // {
-  //   histograms.emplace_back(
-  //       make_plot(all_with_vars, momentum_model, varname, "epi_"));
-  // }
-  // all_with_vars.Snapshot(
-  //     "outtree", output_path + ".tree.root",
-  //     {"raw_proton_momentum", "raw_mass_proton", "rec_pi0_M", "rec_pi0_p",
-  //      "raw_pi0_p", "rec_mass_epi_system", "rec_p_epi_system",
-  //      "raw_pi0_mass", "raw_final_state_mass", "angle_epi0_rec",
-  //      "angle_epi0_truth", "angle_2gamma_after_smear",
-  //      "angle_2gamma_no_smear", "raw_electron_momentum",
-  //      "smear_electron_momentum"});
-
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
     hist->SetDirectory(&output_file);
     hist->Write();
+  }
+  auto dir = output_file.mkdir("per_channel");
+  dir->cd();
+  for (auto &&[channel, hist] : pi0p_per_channel) {
+    hist.Write(normalize_name(channel).c_str());
   }
   output_file.Close();
 
