@@ -6,3 +6,4 @@
 #include <ROOT/RDataFrame.hxx>
 
 ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df);
+ROOT::RDF::RNode TrackerPrepareNeutrino(ROOT::RDF::RNode df);

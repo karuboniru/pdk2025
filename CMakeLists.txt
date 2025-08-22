@@ -44,3 +44,17 @@ target_link_options(main
   PRIVATE
   -Wl,--as-needed
 )
+
+
+add_executable(neutrinoevent neutrinoevent.cxx)
+
+# Link libraries
+target_link_libraries(neutrinoevent
+  ROOT::Physics ROOT::ROOTDataFrame
+  event
+)
+
+target_link_options(neutrinoevent
+  PRIVATE
+  -Wl,--as-needed
+)
