@@ -62,7 +62,8 @@ public:
 
   virtual ~SmearGaussianDirection() = default;
 
-  ROOT::Math::PxPyPzEVector do_smearing(ROOT::Math::PxPyPzEVector vec) const {
+  [[nodiscard]] ROOT::Math::PxPyPzEVector
+  do_smearing(ROOT::Math::PxPyPzEVector vec) const override {
     double angle = get_thread_local_random().Gaus(0, m_sigma);
     return smear_angle(vec, angle);
   }
