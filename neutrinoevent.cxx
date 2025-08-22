@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
   auto tracker_df =
-      TrackerPrepareNeutrino(ROOT::RDataFrame{"outtree", input_files});
+      TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all = tracker_df.Define(
       "channel_name",
@@ -106,41 +106,18 @@ int main(int argc, char **argv) {
         }
       },
       "channel_name", std::map<std::string, std::size_t>{});
-  auto make_hist = []() { return TH1D("", "", 400, 0, 1.0); };
-  auto pi0p_per_channel =
-      df_all
-          .Define("tmp_data_",
-                  [](const std::string &channel, double p) {
-                    return std::make_pair(channel, p);
-                  },
-                  {"channel_name", "raw_pi0_before_fsi"})
-          .Aggregate(
-              [&](std::map<std::string, TH1D> &data,
-                  const std::pair<std::string, double> &col) {
-                auto iter = data.find(col.first);
-                if (iter == data.end()) {
-                  iter = data.emplace(col.first, make_hist()).first;
-                }
-                iter->second.Fill(col.second);
-              },
-              [&](std::vector<std::map<std::string, TH1D>> &to_merge) {
-                auto &target = to_merge[0];
-                for (auto &item : to_merge | std::views::drop(1)) {
-                  for (auto &[key, hist] : item) {
-                    auto iter = target.find(key);
-                    if (iter == target.end()) {
-                      iter = target.emplace(key, make_hist()).first;
-                    }
-                    iter->second.Add(&hist);
-                  }
-                }
-              },
-              "tmp_data_", std::map<std::string, TH1D>{});
 
   auto event_count = df_all.Count();
 
   auto all_with_particles =
       df_all
+          .Filter(
+              [](const NeutrinoEvent &event) {
+                return std::ranges::all_of(event.get_ids_post(), [](auto &&id) {
+                  return id == -11 || id == 111 || id == 2212 || id == 2112;
+                });
+              },
+              {"EventRecord"})
           .Filter(
               [](const NeutrinoEvent &event) {
                 return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
@@ -299,11 +276,6 @@ int main(int argc, char **argv) {
   for (auto &hist : histograms) {
     hist->SetDirectory(&output_file);
     hist->Write();
-  }
-  auto dir = output_file.mkdir("per_channel");
-  dir->cd();
-  for (auto &&[channel, hist] : pi0p_per_channel) {
-    hist.Write(normalize_name(channel).c_str());
   }
   output_file.Close();
 
