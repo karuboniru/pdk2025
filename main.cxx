@@ -354,6 +354,7 @@ int main(int argc, char **argv) {
   for (auto &hist : histograms) {
     hist->SetDirectory(&output_file);
     hist->Write();
+    hist->SetDirectory(nullptr);
   }
   auto dir = output_file.mkdir("per_channel");
   dir->cd();
