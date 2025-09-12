@@ -5,6 +5,7 @@
 #include <Math/Vector3Dfwd.h>
 #include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
+#include <ranges>
 #include <smear.h>
 #include <stdexcept>
 
@@ -76,6 +77,10 @@ std::string NeutrinoEvent::get_channelname() const {
 }
 
 std::string NeutrinoEvent::get_channelname_no_nucleon() const {
+  auto is_this_transparent = is_transparent();
+  if (is_this_transparent) {
+    return "transparent";
+  }
   std::string channel_name_no_nucleon;
   std::stringstream ss{};
   ss << "e+ ";
@@ -143,4 +148,22 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
       in_detector.insert({pdg, {momentum, smared_momentum}});
     }
   }
+}
+
+bool NeutrinoEvent::is_transparent() const {
+  // this checks if the after FSI is "almost" the same as before FSI
+  // there should be no particle produced or absorbed in the nucleus
+  // the momentum should be almost the same (1e-3 GeV/c)
+  if (out.size() != post.size()) {
+    return false;
+  }
+  // each event that seen in post must be in out
+  // and the momentum must be almost the same
+  return std::ranges::all_of(post, [this](const auto &p) {
+    auto range = out_range(p.first);
+    return std::ranges::any_of(range, [&p](const auto &q) {
+      auto diff_p = p.second - q.second;
+      return diff_p.P() < 1e-3;
+    });
+  });
 }

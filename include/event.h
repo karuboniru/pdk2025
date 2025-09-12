@@ -69,6 +69,8 @@ public:
 
   void finalize_and_decay_in_detector();
 
+  bool is_transparent() const;
+
 private:
   std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post;
   std::unordered_multimap<int, pair_momentum_t> in_detector;
