@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
         }
       },
       "channel_name", std::map<std::string, std::size_t>{});
-  auto make_hist = []() { return TH1D("", "", 400, 0, 1.0); };
+  auto make_hist = []() { return TH1D("", "", 400, 0, 1.2); };
   auto pi0p_per_channel =
       df_all
           .Define("tmp_data_",
@@ -321,10 +321,14 @@ int main(int argc, char **argv) {
     to_snapshot.push_back(std::format("smared_{}_{}_angle", var1, var2));
   }
 
+  auto all_nofsi = all_with_vars.Filter(
+      [](const NeutrinoEvent &event) { return event.is_transparent(); },
+      {"EventRecord"});
+
   ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
-                                      0.0, 1.0};
+                                      0.0, 1.2};
   ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 400,
-                                      0.0, 1.0};
+                                      0.0, 1.2};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
 
   for (const auto &varname :
@@ -336,16 +340,22 @@ int main(int argc, char **argv) {
        std::to_array({"raw_final_state_p", "raw_proton_momentum",
                       "raw_pi0_before_fsi"})) {
     histograms.emplace_back(make_plot(df_all, momentum_model, varname));
+    histograms.emplace_back(
+        make_plot(all_nofsi, momentum_model, varname, "noint_"));
   }
 
   for (auto &p_var : p_list) {
     histograms.emplace_back(
         make_plot(all_with_vars, momentum_model, p_var, "epi_"));
+    histograms.emplace_back(
+        make_plot(all_nofsi, momentum_model, p_var, "noint_"));
   }
 
   for (auto &m_var : mass_list) {
     histograms.emplace_back(
         make_plot(all_with_vars, inv_mass_model, m_var, "epi_"));
+    histograms.emplace_back(
+        make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
   }
 
   all_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
