@@ -5,11 +5,46 @@
 #include <Math/Vector3D.h>
 #include <Math/Vector4D.h>
 #include <Rtypes.h>
+#include <TChain.h>
+#include <TGraph.h>
 #include <TRandom.h>
+#include <TSpline.h>
 #include <TVector3.h>
 #include <cmath>
+#include <fstream>
+#include <generator>
 #include <map>
 #include <memory>
+
+std::generator<std::pair<double, double>>
+parse_response_file(std::string filepath) {
+  std::ifstream infile(filepath);
+  if (!infile.is_open()) {
+    throw std::runtime_error("Could not open file: " + filepath);
+  }
+  double energy, value;
+  for (std::string line; std::getline(infile, line);) {
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    std::istringstream iss(line);
+    if (!(iss >> energy >> value)) {
+      throw std::runtime_error("Error parsing line: " + line);
+    }
+    co_yield std::make_pair(energy, value);
+  }
+  infile.close();
+}
+
+TSpline3 build_spline_from_file(std::string filepath) {
+  std::vector<double> x_vals, y_vals;
+  for (const auto &[x, y] : parse_response_file(filepath)) {
+    x_vals.push_back(x);
+    y_vals.push_back(y);
+  }
+  return TSpline3("response_spline", x_vals.data(), y_vals.data(),
+                  x_vals.size());
+}
 
 static std::map<int, std::unique_ptr<ISmearStrategy>> smear_strategies;
 
@@ -109,11 +144,33 @@ public:
     auto smeared_vec = AngularSmear::do_smearing(vec);
     double momentum_scaling =
         get_thread_local_random().Gaus(1, m_momentum_frac);
+    momentum_scaling = std::max(0.0, momentum_scaling);
     return smear_momentum(smeared_vec, momentum_scaling);
   }
 
 private:
   double m_momentum_frac;
+};
+
+class EnergyDependentSmear : public ISmearStrategy {
+public:
+  EnergyDependentSmear(const std::string &configuration = {}) {}
+  EnergyDependentSmear(const EnergyDependentSmear &) = default;
+  EnergyDependentSmear(EnergyDependentSmear &&) = default;
+  EnergyDependentSmear &operator=(const EnergyDependentSmear &) = default;
+  EnergyDependentSmear &operator=(EnergyDependentSmear &&) = default;
+  virtual ~EnergyDependentSmear() = default;
+
+  ROOT::Math::PxPyPzEVector do_smearing(ROOT::Math::PxPyPzEVector vec) const {
+    double energy = vec.E();
+    auto momentum_scaling_sigma = 0.05 / energy + 0.01;
+    double momentum_scaling =
+        get_thread_local_random().Gaus(1, momentum_scaling_sigma);
+    momentum_scaling = std::max(0.0, momentum_scaling);
+    auto smeared_vec = smear_momentum(vec, momentum_scaling);
+    double angle_param = 3.0 / std::sqrt(energy);
+    return SmearRayleighDirection{angle_param}.do_smearing(smeared_vec);
+  }
 };
 
 ISmearStrategy *GetSmearStrategy(int pdg_particle) {
@@ -124,13 +181,48 @@ ISmearStrategy *GetSmearStrategy(int pdg_particle) {
   return nullptr;
 }
 
+class SplineBasedSmear final : public ISmearStrategy {
+public:
+  SplineBasedSmear(const TSpline3 &angle_spline,
+                   const TSpline3 &momentum_spline)
+      : m_angle_spline(angle_spline), m_momentum_spline(momentum_spline) {}
+  SplineBasedSmear(const SplineBasedSmear &) = default;
+  SplineBasedSmear(SplineBasedSmear &&) = default;
+  SplineBasedSmear &operator=(const SplineBasedSmear &) = default;
+  SplineBasedSmear &operator=(SplineBasedSmear &&) = default;
+  virtual ~SplineBasedSmear() = default;
+
+  ROOT::Math::PxPyPzEVector
+  do_smearing(ROOT::Math::PxPyPzEVector vec) const override {
+    double energy = vec.E();
+    double angle_sigma = m_angle_spline.Eval(energy);
+    double momentum_frac = m_momentum_spline.Eval(energy) / 100.;
+
+    auto smeared_vec = SmearRayleighDirection{angle_sigma}.do_smearing(vec);
+    double momentum_scaling = get_thread_local_random().Gaus(1, momentum_frac);
+
+    momentum_scaling = std::max(0.0, momentum_scaling);
+    return smear_momentum(smeared_vec, momentum_scaling);
+  }
+
+private:
+  TSpline3 m_angle_spline;
+  TSpline3 m_momentum_spline;
+};
+
 void initializeGaussianSmearStrategy() {
+  auto ang_file = DATA_PATH "/11/angular";
+  auto mom_file = DATA_PATH "/11/momentum";
+  auto ang_spline = build_spline_from_file(ang_file);
+  auto mom_spline = build_spline_from_file(mom_file);
   smear_strategies[11] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
   smear_strategies[-11] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
   smear_strategies[13] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.02, 1.75);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
+  smear_strategies[-13] =
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
   smear_strategies[22] =
-      std::make_unique<SmearMomentumAndDir<SmearRayleighDirection>>(0.05, 2.91);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
 }

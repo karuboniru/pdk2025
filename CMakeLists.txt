@@ -6,10 +6,12 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 
 # Enable LINK_WHAT_YOU_USE
 set(CMAKE_LINK_WHAT_YOU_USE TRUE)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ROOT REQUIRED)
+
+add_compile_definitions(DATA_PATH="${CMAKE_SOURCE_DIR}/data")
 
 file(
   GLOB
