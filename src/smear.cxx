@@ -184,8 +184,10 @@ ISmearStrategy *GetSmearStrategy(int pdg_particle) {
 class SplineBasedSmear final : public ISmearStrategy {
 public:
   SplineBasedSmear(const TSpline3 &angle_spline,
-                   const TSpline3 &momentum_spline)
-      : m_angle_spline(angle_spline), m_momentum_spline(momentum_spline) {}
+                   const TSpline3 &momentum_spline, double scale_ang = 1.,
+                   double scale_mom = 1.)
+      : m_angle_spline(angle_spline), m_momentum_spline(momentum_spline),
+        m_scale_angle_smear(scale_ang), m_scale_momentum_smear(scale_mom) {}
   SplineBasedSmear(const SplineBasedSmear &) = default;
   SplineBasedSmear(SplineBasedSmear &&) = default;
   SplineBasedSmear &operator=(const SplineBasedSmear &) = default;
@@ -195,8 +197,9 @@ public:
   ROOT::Math::PxPyPzEVector
   do_smearing(ROOT::Math::PxPyPzEVector vec) const override {
     double energy = vec.E();
-    double angle_sigma = m_angle_spline.Eval(energy);
-    double momentum_frac = m_momentum_spline.Eval(energy) / 100.;
+    double angle_sigma = m_angle_spline.Eval(energy) * m_scale_angle_smear;
+    double momentum_frac =
+        m_momentum_spline.Eval(energy) / 100. * m_scale_momentum_smear;
 
     auto smeared_vec = SmearRayleighDirection{angle_sigma}.do_smearing(vec);
     double momentum_scaling = get_thread_local_random().Gaus(1, momentum_frac);
@@ -208,6 +211,8 @@ public:
 private:
   TSpline3 m_angle_spline;
   TSpline3 m_momentum_spline;
+  double m_scale_angle_smear;
+  double m_scale_momentum_smear;
 };
 
 void initializeGaussianSmearStrategy() {
@@ -215,14 +220,16 @@ void initializeGaussianSmearStrategy() {
   auto mom_file = DATA_PATH "/11/momentum";
   auto ang_spline = build_spline_from_file(ang_file);
   auto mom_spline = build_spline_from_file(mom_file);
-  smear_strategies[11] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
-  smear_strategies[-11] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
-  smear_strategies[13] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
-  smear_strategies[-13] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
-  smear_strategies[22] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline);
+  double scale_ang = 0.7;
+  double scale_mom = 0.7;
+  smear_strategies[11] = std::make_unique<SplineBasedSmear>(
+      ang_spline, mom_spline, scale_ang, scale_mom);
+  smear_strategies[-11] = std::make_unique<SplineBasedSmear>(
+      ang_spline, mom_spline, scale_ang, scale_mom);
+  smear_strategies[13] = std::make_unique<SplineBasedSmear>(
+      ang_spline, mom_spline, scale_ang, scale_mom);
+  smear_strategies[-13] = std::make_unique<SplineBasedSmear>(
+      ang_spline, mom_spline, scale_ang, scale_mom);
+  smear_strategies[22] = std::make_unique<SplineBasedSmear>(
+      ang_spline, mom_spline, scale_ang, scale_mom);
 }

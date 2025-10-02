@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
                 return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
                        event.count_det(211) == 0 && event.count_det(-211) == 0;
               },
-              {"EventRecord"})
+              {"EventRecord"}, "epi final state selection")
           .Define("electron",
                   [](const NeutrinoEvent &event) {
                     auto electron = event.det_range(-11);
@@ -321,9 +321,26 @@ int main(int argc, char **argv) {
     to_snapshot.push_back(std::format("smared_{}_{}_angle", var1, var2));
   }
 
+  auto filtered_signal =
+      all_with_vars
+          .Filter(
+              [](double rec_m_pi0) {
+                return rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185;
+              },
+              {"smared_pi0_system_m"},
+              "reconstructed pi0 mass cut (86-185 MeV)")
+          .Filter(
+              [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
+              {"smared_epi_system_m"},
+              "reconstructed proton mass cut (800-1050 MeV)")
+          .Filter([](double rec_p_p) { return rec_p_p < 0.2; },
+                  {"smared_epi_system_p"},
+                  "reconstructed proton momentum cut (< 200 MeV)");
+  auto cut_efficiency = filtered_signal.Report();
+
   auto all_nofsi = all_with_vars.Filter(
       [](const NeutrinoEvent &event) { return event.is_transparent(); },
-      {"EventRecord"});
+      {"EventRecord"}, "transparent FSI  (effectively no FSI)");
 
   ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
                                       0.0, 1.2};
@@ -393,4 +410,7 @@ int main(int argc, char **argv) {
               [](size_t sum, const auto &pair) { return sum + pair.second; }));
   std::println("Entries to plot: {}", entries_to_plot);
   make_pie_plot(entries_to_plot, output_path + ".pie.eps");
+
+  // and the cut efficiency
+  cut_efficiency->Print();
 }
