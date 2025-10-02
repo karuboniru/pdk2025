@@ -220,8 +220,8 @@ void initializeGaussianSmearStrategy() {
   auto mom_file = DATA_PATH "/11/momentum";
   auto ang_spline = build_spline_from_file(ang_file);
   auto mom_spline = build_spline_from_file(mom_file);
-  double scale_ang = 0.7;
-  double scale_mom = 0.7;
+  double scale_ang = 0.8;
+  double scale_mom = 0.5;
   smear_strategies[11] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[-11] = std::make_unique<SplineBasedSmear>(
@@ -230,6 +230,6 @@ void initializeGaussianSmearStrategy() {
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[-13] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
-  smear_strategies[22] = std::make_unique<SplineBasedSmear>(
-      ang_spline, mom_spline, scale_ang, scale_mom);
+  smear_strategies[22] =
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.45, 0.45);
 }
