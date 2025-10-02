@@ -333,9 +333,9 @@ int main(int argc, char **argv) {
               [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
               {"smared_epi_system_m"},
               "reconstructed proton mass cut (800-1050 MeV)")
-          .Filter([](double rec_p_p) { return rec_p_p < 0.2; },
+          .Filter([](double rec_p_p) { return rec_p_p < 0.25; },
                   {"smared_epi_system_p"},
-                  "reconstructed proton momentum cut (< 200 MeV)");
+                  "reconstructed proton momentum cut (< 250 MeV)");
   auto cut_efficiency = filtered_signal.Report();
 
   auto all_nofsi = all_with_vars.Filter(
