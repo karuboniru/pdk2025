@@ -86,6 +86,7 @@ int main(int argc, char **argv) {
   ROOT::EnableImplicitMT(4);
   TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
+  auto nfile = input_files.size();
 
   auto tracker_df =
       TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
@@ -248,5 +249,10 @@ int main(int argc, char **argv) {
                                return w.GetValue() / weight_sum.GetValue();
                              }) |
                              std::ranges::to<std::vector>();
+  std::println("Signal weight {}, {}, {}", weight_sum_signal[0].GetValue(),
+               weight_sum_signal[1].GetValue(),
+               weight_sum_signal[2].GetValue());
   std::println("Signal weight ratios: {}", weight_ratio_signal);
+  std::println("total weight/nfile = {} / {} = {}", weight_sum.GetValue(),
+               nfile, weight_sum.GetValue() / nfile);
 }
