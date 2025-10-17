@@ -31,7 +31,7 @@ ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
                                       const std::string &prefix = "") {
   model.fName = prefix + varname;
   model.fTitle = prefix + varname;
-  return df.Histo1D(model, varname);
+  return df.Histo1D(model, varname, "weight");
 }
 
 std::string normalize_name(std::string orig) {
@@ -186,9 +186,9 @@ int main(int argc, char **argv) {
                   {"electron", "pi0_system"});
   auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
       DefineForEPi(df_epi_final_state);
+  to_snapshot.push_back("weight");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
-  auto &&[filtered_signal, upper, lower] = signals;
   auto weight_sum_signal = signals |
                            std::views::transform([](ROOT::RDF::RNode &node) {
                              return node.Sum("weight");
@@ -243,11 +243,10 @@ int main(int argc, char **argv) {
   std::println("Entries to plot: {}", entries_to_plot);
   make_pie_plot(entries_to_plot, output_path + ".pie.eps");
 
-  auto weight_ratio_signal =
-      weight_sum_signal |
-      std::views::transform([&weight_sum](auto w) {
-        return w.GetValue() / weight_sum.GetValue();
-      }) |
-      std::ranges::to<std::vector>();
+  auto weight_ratio_signal = weight_sum_signal |
+                             std::views::transform([&weight_sum](auto w) {
+                               return w.GetValue() / weight_sum.GetValue();
+                             }) |
+                             std::ranges::to<std::vector>();
   std::println("Signal weight ratios: {}", weight_ratio_signal);
 }
