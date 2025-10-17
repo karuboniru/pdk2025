@@ -133,14 +133,19 @@ int main(int argc, char **argv) {
               {"EventRecord"})
           .Filter(
               [](const NeutrinoEvent &event) {
-                return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
-                       event.count_det(211) == 0 && event.count_det(-211) == 0;
+                return event.count_det(-11) + event.count_det(11) == 1 &&
+                       event.count_det(22) == 2 && event.count_det(211) == 0 &&
+                       event.count_det(-211) == 0;
               },
               {"EventRecord"})
           .Define("electron",
                   [](const NeutrinoEvent &event) {
-                    auto electron = event.det_range(-11);
-                    return electron.begin()->second;
+                    // auto electron = event.det_range(-11);
+                    // return electron.begin()->second;
+                    if (event.count_det(-11) == 1) {
+                      return event.get_leading_det(-11);
+                    }
+                    return event.get_leading_det(11);
                   },
                   {"EventRecord"})
           .Define("photons",
