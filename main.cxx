@@ -22,6 +22,7 @@
 
 #include "EvtTracker2event.h"
 #include "cmdline.h"
+#include "commondefine.h"
 #include "event.h"
 #include "smear.h"
 
@@ -181,7 +182,7 @@ int main(int argc, char **argv) {
 
   auto event_count = df_all.Count();
 
-  auto all_with_particles =
+  auto df_epi_final_state =
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
@@ -237,108 +238,28 @@ int main(int argc, char **argv) {
                     return electron + pi0_system;
                   },
                   {"electron", "pi0_system"});
-  ROOT::RDF::RNode all_with_vars = all_with_particles;
-  auto name_p4_pairs =
-      std::to_array({"electron", "lead_photon", "sublead_photon", "pi0_system",
-                     "epi_system"});
-  std::vector<std::string> to_snapshot{"raw_proton_momentum", "raw_mass_proton",
-                                       "raw_pi0_before_fsi"},
-      mass_list{"raw_mass_proton"},
-      p_list{"raw_pi0_before_fsi", "raw_proton_momentum"};
 
-  for (const auto &name : name_p4_pairs) {
-    all_with_vars = all_with_vars
-                        .Define(std::format("true_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.P();
-                                },
-                                {name})
-                        .Define(std::format("true_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.M();
-                                },
-                                {name})
-                        .Define(std::format("true_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Theta() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("true_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Phi() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.P();
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.M();
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Theta() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Phi() * to_deg;
-                                },
-                                {name});
-    for (const auto &suffix : std::to_array({"p", "m", "theta", "phi"})) {
-      to_snapshot.push_back(std::format("true_{}_{}", name, suffix));
-      to_snapshot.push_back(std::format("smared_{}_{}", name, suffix));
-    }
-    mass_list.push_back(std::format("true_{}_m", name));
-    mass_list.push_back(std::format("smared_{}_m", name));
-    p_list.push_back(std::format("true_{}_p", name));
-    p_list.push_back(std::format("smared_{}_p", name));
-  }
+  auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
+      DefineForEPi(df_epi_final_state);
 
-  for (auto &&[var1, var2] : iter_pair(name_p4_pairs)) {
-    all_with_vars =
-        all_with_vars
-            .Define(std::format("true_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.first.Vect().Unit().Dot(
-                                 p4_pair2.first.Vect().Unit())) *
-                             to_deg;
-                    },
-                    {var1, var2})
-            .Define(std::format("smared_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.second.Vect().Unit().Dot(
-                                 p4_pair2.second.Vect().Unit())) *
-                             to_deg;
-                    },
-                    {var1, var2});
-    to_snapshot.push_back(std::format("true_{}_{}_angle", var1, var2));
-    to_snapshot.push_back(std::format("smared_{}_{}_angle", var1, var2));
-  }
+  std::ranges::copy(std::to_array({"raw_proton_momentum", "raw_mass_proton",
+                                   "raw_pi0_before_fsi"}),
+                    std::back_inserter(to_snapshot));
+  std::ranges::copy(
+      std::to_array({"raw_pi0_before_fsi", "raw_proton_momentum"}),
+      std::back_inserter(p_list));
+  std::ranges::copy(std::to_array({"raw_mass_proton"}),
+                    std::back_inserter(mass_list));
 
-  auto filtered_signal =
-      all_with_vars
-          .Filter(
-              [](double rec_m_pi0) {
-                return rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185;
-              },
-              {"smared_pi0_system_m"},
-              "reconstructed pi0 mass cut (86-185 MeV)")
-          .Filter(
-              [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
-              {"smared_epi_system_m"},
-              "reconstructed proton mass cut (800-1050 MeV)")
-          .Filter([](double rec_p_p) { return rec_p_p < 0.25; },
-                  {"smared_epi_system_p"},
-                  "reconstructed proton momentum cut (< 250 MeV)");
+  // auto [filtered_signal, upper, lower] =
+  auto signals=
+      FilterSignalKinematics(df_epi_with_vars);
+  auto &&[filtered_signal, upper, lower] = signals;
   auto cut_efficiency = filtered_signal.Report();
+  auto cut_efficiency_lower = lower.Report();
+  auto cut_efficiency_upper = upper.Report();
 
-  auto all_nofsi = all_with_vars.Filter(
+  auto all_nofsi = df_epi_with_vars.Filter(
       [](const NeutrinoEvent &event) { return event.is_transparent(); },
       {"EventRecord"}, "transparent FSI  (effectively no FSI)");
 
@@ -363,19 +284,19 @@ int main(int argc, char **argv) {
 
   for (auto &p_var : p_list) {
     histograms.emplace_back(
-        make_plot(all_with_vars, momentum_model, p_var, "epi_"));
+        make_plot(df_epi_with_vars, momentum_model, p_var, "epi_"));
     histograms.emplace_back(
         make_plot(all_nofsi, momentum_model, p_var, "noint_"));
   }
 
   for (auto &m_var : mass_list) {
     histograms.emplace_back(
-        make_plot(all_with_vars, inv_mass_model, m_var, "epi_"));
+        make_plot(df_epi_with_vars, inv_mass_model, m_var, "epi_"));
     histograms.emplace_back(
         make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
   }
 
-  all_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
+  df_epi_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
@@ -412,5 +333,10 @@ int main(int argc, char **argv) {
   make_pie_plot(entries_to_plot, output_path + ".pie.eps");
 
   // and the cut efficiency
+  std::println("Cut efficiency report:");
   cut_efficiency->Print();
+  std::println("Cut efficiency report(lower region):");
+  cut_efficiency_lower->Print();
+  std::println("Cut efficiency report(upper region):");
+  cut_efficiency_upper->Print();
 }

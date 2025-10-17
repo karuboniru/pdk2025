@@ -22,6 +22,7 @@
 
 #include "EvtTracker2event.h"
 #include "cmdline.h"
+#include "commondefine.h"
 #include "event.h"
 #include "smear.h"
 
@@ -93,23 +94,34 @@ int main(int argc, char **argv) {
       "channel_name",
       [](NeutrinoEvent &e) { return e.get_channelname_no_nucleon(); },
       {"EventRecord"});
-  auto count_per_channel = df_all.Aggregate(
-      [](std::map<std::string, std::size_t> &data, const std::string &col) {
-        data[col]++;
-      },
-      [](std::vector<std::map<std::string, std::size_t>> &to_merge) {
-        for (auto &target = to_merge[0];
-             const auto &item : to_merge | std::views::drop(1)) {
-          for (const auto &[key, value] : item) {
-            target[key] += value;
-          }
-        }
-      },
-      "channel_name", std::map<std::string, std::size_t>{});
+  auto count_per_channel =
+      df_all
+          .Define("channel_name_weight",
+                  [](const std::string &name,
+                     double weight) -> std::pair<std::string, double> {
+                    return std::make_pair(name, weight);
+                  },
+                  {"channel_name", "weight"})
+          .Aggregate(
+              [](std::map<std::string, double> &data,
+                 const std::pair<std::string, double> &col) {
+                auto &[name, weight] = col;
+                data[name] += weight;
+              },
+              [](std::vector<std::map<std::string, double>> &to_merge) {
+                for (auto &target = to_merge[0];
+                     const auto &item : to_merge | std::views::drop(1)) {
+                  for (const auto &[key, value] : item) {
+                    target[key] += value;
+                  }
+                }
+              },
+              "channel_name_weight", std::map<std::string, double>{});
 
-  auto event_count = df_all.Count();
+  // auto event_count = df_all.Count();
+  auto weight_sum = df_all.Sum("weight");
 
-  auto all_with_particles =
+  auto df_epi_final_state =
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
@@ -172,86 +184,16 @@ int main(int argc, char **argv) {
                     return electron + pi0_system;
                   },
                   {"electron", "pi0_system"});
-  ROOT::RDF::RNode all_with_vars = all_with_particles;
-  auto name_p4_pairs =
-      std::to_array({"electron", "lead_photon", "sublead_photon", "pi0_system",
-                     "epi_system"});
-  std::vector<std::string> to_snapshot{}, mass_list{}, p_list{};
+  auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
+      DefineForEPi(df_epi_final_state);
 
-  for (const auto &name : name_p4_pairs) {
-    all_with_vars = all_with_vars
-                        .Define(std::format("true_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.P();
-                                },
-                                {name})
-                        .Define(std::format("true_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.M();
-                                },
-                                {name})
-                        .Define(std::format("true_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Theta() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("true_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Phi() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.P();
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.M();
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Theta() * to_deg;
-                                },
-                                {name})
-                        .Define(std::format("smared_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Phi() * to_deg;
-                                },
-                                {name});
-    for (const auto &suffix : std::to_array({"p", "m", "theta", "phi"})) {
-      to_snapshot.push_back(std::format("true_{}_{}", name, suffix));
-      to_snapshot.push_back(std::format("smared_{}_{}", name, suffix));
-    }
-    mass_list.push_back(std::format("true_{}_m", name));
-    mass_list.push_back(std::format("smared_{}_m", name));
-    p_list.push_back(std::format("true_{}_p", name));
-    p_list.push_back(std::format("smared_{}_p", name));
-  }
-
-  for (auto &&[var1, var2] : iter_pair(name_p4_pairs)) {
-    all_with_vars =
-        all_with_vars
-            .Define(std::format("true_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.first.Vect().Unit().Dot(
-                                 p4_pair2.first.Vect().Unit())) *
-                             to_deg;
-                    },
-                    {var1, var2})
-            .Define(std::format("smared_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.second.Vect().Unit().Dot(
-                                 p4_pair2.second.Vect().Unit())) *
-                             to_deg;
-                    },
-                    {var1, var2});
-    to_snapshot.push_back(std::format("true_{}_{}_angle", var1, var2));
-    to_snapshot.push_back(std::format("smared_{}_{}_angle", var1, var2));
-  }
+  auto signals = FilterSignalKinematics(df_epi_with_vars);
+  auto &&[filtered_signal, upper, lower] = signals;
+  auto weight_sum_signal = signals |
+                           std::views::transform([](ROOT::RDF::RNode &node) {
+                             return node.Sum("weight");
+                           }) |
+                           std::ranges::to<std::vector>();
 
   ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
                                       0.0, 1.0};
@@ -262,15 +204,15 @@ int main(int argc, char **argv) {
   histograms.reserve(p_list.size() + mass_list.size());
   for (auto &p_var : p_list) {
     histograms.emplace_back(
-        make_plot(all_with_vars, momentum_model, p_var, "epi_"));
+        make_plot(df_epi_with_vars, momentum_model, p_var, "epi_"));
   }
 
   for (auto &m_var : mass_list) {
     histograms.emplace_back(
-        make_plot(all_with_vars, inv_mass_model, m_var, "epi_"));
+        make_plot(df_epi_with_vars, inv_mass_model, m_var, "epi_"));
   }
 
-  all_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
+  df_epi_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
@@ -283,7 +225,7 @@ int main(int argc, char **argv) {
 
   auto vec_count_per_channel =
       count_per_channel |
-      std::ranges::to<std::vector<std::pair<std::string, size_t>>>();
+      std::ranges::to<std::vector<std::pair<std::string, double>>>();
   std::ranges::sort(
       vec_count_per_channel,
       [](const auto &a, const auto &b) -> bool { return a.second > b.second; });
@@ -293,10 +235,19 @@ int main(int argc, char **argv) {
                          std::ranges::to<std::vector>();
   entries_to_plot.emplace_back(
       "Other",
-      event_count.GetValue() -
-          std::accumulate(
-              entries_to_plot.begin(), entries_to_plot.end(), 0,
-              [](size_t sum, const auto &pair) { return sum + pair.second; }));
+      weight_sum.GetValue() - std::accumulate(entries_to_plot.begin(),
+                                              entries_to_plot.end(), 0.,
+                                              [](size_t sum, const auto &pair) {
+                                                return sum + pair.second;
+                                              }));
   std::println("Entries to plot: {}", entries_to_plot);
   make_pie_plot(entries_to_plot, output_path + ".pie.eps");
+
+  auto weight_ratio_signal =
+      weight_sum_signal |
+      std::views::transform([&weight_sum](auto w) {
+        return w.GetValue() / weight_sum.GetValue();
+      }) |
+      std::ranges::to<std::vector>();
+  std::println("Signal weight ratios: {}", weight_ratio_signal);
 }
