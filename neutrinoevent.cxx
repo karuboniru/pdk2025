@@ -195,6 +195,7 @@ int main(int argc, char **argv) {
   to_snapshot.push_back("weight");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
+  auto signal_0_eff = signals[0].Report();
   auto weight_sum_signal = signals |
                            std::views::transform([](ROOT::RDF::RNode &node) {
                              return node.Sum("weight");
@@ -260,4 +261,5 @@ int main(int argc, char **argv) {
   std::println("Signal weight ratios: {}", weight_ratio_signal);
   std::println("total weight/nfile = {} / {} = {}", weight_sum.GetValue(),
                nfile, weight_sum.GetValue() / nfile);
+  signal_0_eff->Print();
 }
