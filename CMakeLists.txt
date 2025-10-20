@@ -60,3 +60,17 @@ target_link_options(neutrinoevent
   PRIVATE
   -Wl,--as-needed
 )
+
+
+add_executable(fluxint fluxint.cxx)
+
+# Link libraries
+target_link_libraries(fluxint
+  ROOT::Physics
+  event
+)
+
+target_link_options(fluxint
+  PRIVATE
+  -Wl,--as-needed
+)
