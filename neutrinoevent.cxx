@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
         make_plot(df_epi_with_vars, inv_mass_model, m_var, "epi_"));
   }
 
-  df_epi_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
+  signals[0].Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
