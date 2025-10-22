@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     values.push_back(value);
   }
   auto emin = energies.front();
-  auto emax = energies.back();
+  auto emax = 20.;
   TSpline3 flux_spline("flux_spline", energies.data(), values.data(),
                        energies.size());
   TF1 flux_func(

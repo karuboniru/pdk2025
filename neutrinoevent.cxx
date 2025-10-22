@@ -202,6 +202,7 @@ int main(int argc, char **argv) {
       DefineForEPi(df_epi_final_state);
   to_snapshot.push_back("weight");
   to_snapshot.push_back("NeutrinoEnergy");
+  to_snapshot.push_back("channel");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
   auto signal_0_eff = signals[0].Report();
