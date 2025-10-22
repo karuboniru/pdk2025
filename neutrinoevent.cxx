@@ -91,10 +91,17 @@ int main(int argc, char **argv) {
   auto tracker_df =
       TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
-  auto df_all = tracker_df.Define(
-      "channel_name",
-      [](NeutrinoEvent &e) { return e.get_channelname_no_nucleon(); },
-      {"EventRecord"});
+  auto df_all = tracker_df
+                    .Define("channel_name",
+                            [](NeutrinoEvent &e) {
+                              return e.get_channelname_no_nucleon();
+                            },
+                            {"EventRecord"})
+                    .Define("NeutrinoEnergy",
+                            [](const ROOT::RVec<double> &StdHepP4_) {
+                              return StdHepP4_[3];
+                            },
+                            {"StdHepP4"});
   auto count_per_channel =
       df_all
           .Define("channel_name_weight",
@@ -194,6 +201,7 @@ int main(int argc, char **argv) {
   auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
       DefineForEPi(df_epi_final_state);
   to_snapshot.push_back("weight");
+  to_snapshot.push_back("NeutrinoEnergy");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
   auto signal_0_eff = signals[0].Report();
