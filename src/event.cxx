@@ -22,6 +22,15 @@ void NeutrinoEvent::add_out(int id, const ROOT::Math::PxPyPzEVector &particle) {
 }
 void NeutrinoEvent::add_post(int id,
                              const ROOT::Math::PxPyPzEVector &particle) {
+  double P = particle.P();
+  // exclude low energy particles below detection threshold
+  if (std::abs(id) == 13 && P < 0.118) {
+    return;
+  }
+  if (std::abs(id) == 211 && P < 0.156) {
+    return;
+  }
+
   post.insert({id, particle});
   ids_post.insert(id);
 }
