@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
                   {"electron", "pi0_system"});
 
   auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
-      DefineForEPi(df_epi_final_state);
+      DefineForEPi(ROOT::RDF::RNode{df_epi_final_state});
 
   std::ranges::copy(std::to_array({"raw_proton_momentum", "raw_mass_proton",
                                    "raw_pi0_before_fsi"}),
@@ -252,8 +252,7 @@ int main(int argc, char **argv) {
                     std::back_inserter(mass_list));
 
   // auto [filtered_signal, upper, lower] =
-  auto signals=
-      FilterSignalKinematics(df_epi_with_vars);
+  auto signals = FilterSignalKinematics(df_epi_with_vars);
   auto &&[filtered_signal, upper, lower] = signals;
   auto cut_efficiency = filtered_signal.Report();
   auto cut_efficiency_lower = lower.Report();

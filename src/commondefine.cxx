@@ -128,3 +128,52 @@ std::array<ROOT::RDF::RNode, 3> FilterSignalKinematics(ROOT::RDF::RNode df) {
       "reconstructed proton momentum lower region (< 100 MeV)");
   return {signal, signal_upper, signal_lower};
 }
+
+std::tuple<FilterTrackedRDF, std::vector<std::string>, std::vector<std::string>,
+           std::vector<std::string>>
+DefineForEPi(FilterTrackedRDF all_with_vars) {
+  auto res_raw = DefineForEPi(static_cast<ROOT::RDF::RNode>(all_with_vars));
+  auto &[all_with_vars_node, to_snapshot, mass_list, p_list] = res_raw;
+  FilterTrackedRDF all_with_vars_ft{all_with_vars};
+  all_with_vars_ft = all_with_vars_node;
+  return {all_with_vars_ft, to_snapshot, mass_list, p_list};
+}
+
+std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
+  auto signal =
+      df.FilterTracked(
+            [](double rec_m_pi0) {
+              return rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185;
+            },
+            {"smared_pi0_system_m"}, "reconstructed pi0 mass cut (85-185 MeV)")
+          .FilterTracked(
+              [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
+              {"smared_epi_system_m"},
+              "reconstructed proton mass cut (800-1050 MeV)")
+          .FilterTracked([](double rec_p_p) { return rec_p_p < 0.25; },
+                         {"smared_epi_system_p"},
+                         "reconstructed proton momentum cut (< 250 MeV)");
+  auto signal_upper = signal.FilterTracked(
+      [](double rec_p_p) { return rec_p_p >= 0.1; }, {"smared_epi_system_p"},
+      "reconstructed proton momentum upper region (>= 100 MeV)");
+  auto signal_lower = signal.FilterTracked(
+      [](double rec_p_p) { return rec_p_p < 0.1; }, {"smared_epi_system_p"},
+      "reconstructed proton momentum lower region (< 100 MeV)");
+  return {signal, signal_upper, signal_lower};
+}
+
+#include <print>
+#include <ranges>
+void FilterTrackedRDF::Report() {
+  for (auto &&[weights, name, count] : std::views::zip(
+           m_tracked_weight_sum | std::views::adjacent<2>, m_tracked_filters, m_tracked_count)) {
+    auto [before, after] = weights;
+    double efficiency = after.GetValue() / before.GetValue();
+    std::println(
+        "Filter {0}\t: efficiency = {1:.2f}% ({2:.2e} -> {3:.2e})\ttotal "
+        "efficiency: {4:.4e} ({5:.2e} -> {3:.2e}), count: {6}",
+        name, efficiency * 100., before.GetValue(), after.GetValue(),
+        (after.GetValue() / m_initial_weight_sum.GetValue()),
+        m_initial_weight_sum.GetValue(), count.GetValue());
+  }
+}

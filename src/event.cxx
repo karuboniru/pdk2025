@@ -18,6 +18,12 @@ void NeutrinoEvent::add_in(int id, const ROOT::Math::PxPyPzEVector &particle) {
   in.insert({id, particle});
 }
 void NeutrinoEvent::add_out(int id, const ROOT::Math::PxPyPzEVector &particle) {
+  // ignore pi- with low momentum
+  // it can not produce Cerenkov light in water
+  // nor can it produce michel electrons
+  if (id == -211 && particle.P() < 0.156) {
+    return;
+  }
   out.insert({id, particle});
 }
 void NeutrinoEvent::add_post(int id,

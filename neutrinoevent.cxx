@@ -130,8 +130,9 @@ int main(int argc, char **argv) {
   auto weight_sum = df_all.Sum("weight");
 
   auto df_epi_final_state =
-      df_all
-          .Filter(
+      FilterTrackedRDF{df_all}
+          .SetWeightColumnName("weight")
+          .FilterTracked(
               [](const NeutrinoEvent &event) {
                 return std::ranges::all_of(event.get_ids_post(), [](auto &&id) {
                   return id == -11 || id == 11 || id == 111 || id == 2212 ||
@@ -139,7 +140,7 @@ int main(int argc, char **argv) {
                 });
               },
               {"EventRecord"}, "only e pi0 nucleon final state")
-          .Filter(
+          .FilterTracked(
               [](const NeutrinoEvent &event) {
                 return event.count_det(-11) + event.count_det(11) == 1 &&
                        event.count_det(22) == 2 && event.count_det(211) == 0 &&
@@ -205,7 +206,6 @@ int main(int argc, char **argv) {
   to_snapshot.push_back("channel");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
-  auto signal_0_eff = signals[0].Report();
   auto weight_sum_signal = signals |
                            std::views::transform([](ROOT::RDF::RNode &node) {
                              return node.Sum("weight");
@@ -235,6 +235,7 @@ int main(int argc, char **argv) {
   for (auto &hist : histograms) {
     hist->SetDirectory(&output_file);
     hist->Write();
+    hist->SetDirectory(nullptr);
   }
   output_file.Close();
 
@@ -271,5 +272,6 @@ int main(int argc, char **argv) {
   std::println("Signal weight ratios: {}", weight_ratio_signal);
   std::println("total weight/nfile = {} / {} = {}", weight_sum.GetValue(),
                nfile, weight_sum.GetValue() / nfile);
-  signal_0_eff->Print();
+
+  signals[0].Report();
 }
