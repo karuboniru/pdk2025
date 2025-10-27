@@ -165,8 +165,17 @@ std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
 #include <print>
 #include <ranges>
 void FilterTrackedRDF::Report() {
-  for (auto &&[weights, name, count] : std::views::zip(
-           m_tracked_weight_sum | std::views::adjacent<2>, m_tracked_filters, m_tracked_count)) {
+  if (m_tracked_weight_sum.size() != m_tracked_filters.size() + 1 ||
+      m_tracked_filters.size() != m_tracked_count.size()) {
+    std::println(std::cerr, "Sizes: weights = {}, filters = {}, counts = {}",
+                 m_tracked_weight_sum.size(), m_tracked_filters.size(),
+                 m_tracked_count.size());
+    throw std::runtime_error(
+        "Inconsistent tracked filter data sizes in Report()");
+  }
+  for (auto &&[weights, name, count] :
+       std::views::zip(m_tracked_weight_sum | std::views::adjacent<2>,
+                       m_tracked_filters, m_tracked_count)) {
     auto [before, after] = weights;
     double efficiency = after.GetValue() / before.GetValue();
     std::println(

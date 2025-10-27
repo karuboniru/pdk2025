@@ -273,5 +273,8 @@ int main(int argc, char **argv) {
   std::println("total weight/nfile = {} / {} = {}", weight_sum.GetValue(),
                nfile, weight_sum.GetValue() / nfile);
 
-  signals[0].Report();
+  for (auto &signal : signals) {
+    signal.Report();
+    std::println("");
+  }
 }

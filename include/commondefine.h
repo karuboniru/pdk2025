@@ -43,7 +43,7 @@ public:
       throw std::runtime_error(
           "SetWeightColumnName must be called before any FilterTracked");
     }
-    m_tracked_weight_sum.push_back(new_node.m_initial_weight_sum);
+    new_node.m_tracked_weight_sum.push_back(new_node.m_initial_weight_sum);
     return new_node;
   }
 
