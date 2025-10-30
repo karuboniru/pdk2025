@@ -186,6 +186,14 @@ int main(int argc, char **argv) {
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
+                return std::ranges::all_of(event.get_ids_post(), [](auto &&id) {
+                  return id == -11 || id == 11 || id == 111 || id == 2212 ||
+                         id == 2112;
+                });
+              },
+              {"EventRecord"}, "only e pi0 nucleon final state")
+          .Filter(
+              [](const NeutrinoEvent &event) {
                 return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
                        event.count_det(211) == 0 && event.count_det(-211) == 0;
               },
