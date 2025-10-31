@@ -182,22 +182,18 @@ int main(int argc, char **argv) {
   auto df_epi_final_state =
       df_all
           .Filter(
-              [](const NeutrinoEvent &event) {
-                return event.count_rings_in_detector() == 2 ||
-                       event.count_rings_in_detector() == 3;
-              },
-              {"EventRecord"}, "2 or 3 rings in detector")
+              [](const size_t nrings) { return nrings == 2 || nrings == 3; },
+              {"nrings"}, "2 or 3 rings in detector")
           .Filter(
-              [](const NeutrinoEvent &event) {
-                return event.count_shower_rings_in_detector() ==
-                       event.count_rings_in_detector();
+              [](const size_t nrings, const size_t nshower_rings) {
+                return nshower_rings == nrings;
               },
-              {"EventRecord"}, "all shower-like rings")
+              {"nrings", "nshower_rings"}, "all shower-like rings")
           .Filter(
-              [](const NeutrinoEvent &event) {
-                return event.get_n_michel_electrons() == 0;
+              [](const size_t nmichel_electrons) {
+                return nmichel_electrons == 0;
               },
-              {"EventRecord"}, "no michel electrons")
+              {"nmichel_electrons"}, "no michel electrons")
           .Define(
               "rec",
               [](const NeutrinoEvent &event) { return event.Rec_lpi_event(); },

@@ -109,11 +109,10 @@ DefineForEPi(ROOT::RDF::RNode all_with_vars_in) {
 std::array<ROOT::RDF::RNode, 3> FilterSignalKinematics(ROOT::RDF::RNode df) {
   auto signal =
       df.Filter(
-            [](double rec_m_pi0, const NeutrinoEvent &event) {
-              return (rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185) ||
-                     (event.count_rings_in_detector() == 2);
+            [](double rec_m_pi0, size_t nrings) {
+              return (rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185) || nrings == 2;
             },
-            {"smared_pi0_system_m", "EventRecord"},
+            {"smared_pi0_system_m", "nrings"},
             "reconstructed pi0 mass cut (85-185 MeV) for 3 rings event")
           .Filter(
               [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
@@ -144,11 +143,10 @@ DefineForEPi(FilterTrackedRDF all_with_vars) {
 std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
   auto signal =
       df.FilterTracked(
-            [](double rec_m_pi0, const NeutrinoEvent &event) {
-              return (rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185) ||
-                     (event.count_rings_in_detector() == 2);
+            [](double rec_m_pi0, size_t nrings) {
+              return (rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185) || nrings == 2;
             },
-            {"smared_pi0_system_m", "EventRecord"},
+            {"smared_pi0_system_m", "nrings"},
             "reconstructed pi0 mass cut (85-185 MeV) for 3 rings event")
           .FilterTracked(
               [](double rec_m_p) { return rec_m_p > 0.8 && rec_m_p < 1.05; },
