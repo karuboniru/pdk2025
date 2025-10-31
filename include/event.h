@@ -5,6 +5,31 @@
 #include <set>
 #include <unordered_map>
 #include <utility>
+#include <vector>
+
+using pair_momentum_t =
+    std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
+using momentum_pair = pair_momentum_t;
+
+// struct momentum_pair {
+//   ROOT::Math::PxPyPzEVector true_momentum;
+//   ROOT::Math::PxPyPzEVector momentum;
+// };
+
+momentum_pair operator+(const momentum_pair &a, const momentum_pair &b);
+
+struct RingInfo {
+  momentum_pair m_pair;
+  int from_pdg{};
+  bool is_shower{};
+};
+
+struct RecResult {
+  RingInfo lepton;
+  RingInfo leading_gamma;
+  std::optional<RingInfo> subleading_gamma;
+  std::optional<momentum_pair> rec_pi0;
+};
 
 template <typename U> class equal_range_iterable {
 public:
@@ -26,8 +51,7 @@ private:
 template <typename U>
 equal_range_iterable(U &&, int) -> equal_range_iterable<U>;
 
-using pair_momentum_t =
-    std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
+
 
 class NeutrinoEvent {
 public:
@@ -71,8 +95,19 @@ public:
 
   bool is_transparent() const;
 
+  RecResult Rec_lpi_event(bool is_mu_pi = false) const;
+
+  size_t count_rings_in_detector() const { return rings_in_detector.size(); }
+  size_t count_shower_rings_in_detector() const {
+    return std::count_if(rings_in_detector.begin(), rings_in_detector.end(),
+                         [](const RingInfo &ring) { return ring.is_shower; });
+  }
+  size_t get_n_michel_electrons() const { return n_michel_electrons; }
+
 private:
   std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post;
   std::unordered_multimap<int, pair_momentum_t> in_detector;
   std::set<int> ids_post;
+  std::vector<RingInfo> rings_in_detector;
+  size_t n_michel_electrons{0};
 };

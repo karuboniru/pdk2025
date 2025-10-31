@@ -1,6 +1,7 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
 #include <ROOT/RVec.hxx>
+#include <TMemFile.h>
 #include <TROOT.h>
 #include <array>
 #include <format>
@@ -74,10 +75,6 @@ void make_pie_plot(auto &data, const std::string &filename) {
   pie->Draw("");
   leg->Draw("SAME");
   canvas->SaveAs(filename.c_str());
-}
-
-pair_momentum_t operator+(const pair_momentum_t &a, const pair_momentum_t &b) {
-  return {a.first + b.first, a.second + b.second};
 }
 
 int main(int argc, char **argv) {
@@ -186,60 +183,41 @@ int main(int argc, char **argv) {
       df_all
           .Filter(
               [](const NeutrinoEvent &event) {
-                return std::ranges::all_of(event.get_ids_post(), [](auto &&id) {
-                  return id == -11 || id == 11 || id == 111 || id == 2212 ||
-                         id == 2112;
-                });
+                return event.count_rings_in_detector() == 2 ||
+                       event.count_rings_in_detector() == 3;
               },
-              {"EventRecord"}, "only e pi0 nucleon final state")
+              {"EventRecord"}, "2 or 3 rings in detector")
           .Filter(
               [](const NeutrinoEvent &event) {
-                return event.count_det(-11) == 1 && event.count_det(22) == 2 &&
-                       event.count_det(211) == 0 && event.count_det(-211) == 0;
+                return event.count_shower_rings_in_detector() ==
+                       event.count_rings_in_detector();
               },
-              {"EventRecord"}, "epi final state selection")
+              {"EventRecord"}, "all shower-like rings")
+          .Filter(
+              [](const NeutrinoEvent &event) {
+                return event.get_n_michel_electrons() == 0;
+              },
+              {"EventRecord"}, "no michel electrons")
+          .Define(
+              "rec",
+              [](const NeutrinoEvent &event) { return event.Rec_lpi_event(); },
+              {"EventRecord"})
           .Define("electron",
-                  [](const NeutrinoEvent &event) {
-                    auto electron = event.det_range(-11);
-                    return electron.begin()->second;
+                  [](const RecResult &rec) { return rec.lepton.m_pair; },
+                  {"rec"})
+          .Define("lead_photon",
+                  [](const RecResult &rec) { return rec.leading_gamma.m_pair; },
+                  {"rec"})
+          .Define("sublead_photon",
+                  [](const RecResult &rec) {
+                    return rec.subleading_gamma.value_or(RingInfo{}).m_pair;
                   },
-                  {"EventRecord"})
-          .Define("photons",
-                  [](const NeutrinoEvent &event)
-                      -> std::pair<pair_momentum_t, pair_momentum_t> {
-                    auto photons = event.det_range(22);
-                    if (photons.size() < 2) {
-                      throw std::runtime_error(
-                          "Not enough photons in the event");
-                    }
-                    auto photon1 = photons.begin()->second;
-                    auto photon2 = (++photons.begin())->second;
-
-                    if (photon1.second.P() < photon2.second.P()) {
-                      // return std::make_pair(photon1, photon2);
-                      std::swap(photon1, photon2);
-                    }
-                    return std::make_pair(photon1, photon2);
-                  },
-                  {"EventRecord"})
-          .Define(
-              "lead_photon",
-              [](const std::pair<pair_momentum_t, pair_momentum_t> &photons) {
-                return photons.first;
-              },
-              {"photons"})
-          .Define(
-              "sublead_photon",
-              [](const std::pair<pair_momentum_t, pair_momentum_t> &photons) {
-                return photons.second;
-              },
-              {"photons"})
+                  {"rec"})
           .Define("pi0_system",
-                  [](const pair_momentum_t &leading_photon,
-                     const pair_momentum_t &subleading_photon) {
-                    return leading_photon + subleading_photon;
+                  [](const RecResult &rec) {
+                    return rec.rec_pi0.value_or(pair_momentum_t{});
                   },
-                  {"lead_photon", "sublead_photon"})
+                  {"rec"})
           .Define("epi_system",
                   [](const pair_momentum_t &electron,
                      const pair_momentum_t &pi0_system) {

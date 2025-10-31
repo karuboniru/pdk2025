@@ -5,6 +5,7 @@
 #include <Math/Vector3Dfwd.h>
 #include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
+#include <cstdlib>
 #include <ranges>
 #include <smear.h>
 #include <stdexcept>
@@ -18,23 +19,10 @@ void NeutrinoEvent::add_in(int id, const ROOT::Math::PxPyPzEVector &particle) {
   in.insert({id, particle});
 }
 void NeutrinoEvent::add_out(int id, const ROOT::Math::PxPyPzEVector &particle) {
-  // ignore pi- with low momentum
-  // it can not produce Cerenkov light in water
-  // nor can it produce michel electrons
-  if (id == -211 && particle.P() < 0.156) {
-    return;
-  }
   out.insert({id, particle});
 }
 void NeutrinoEvent::add_post(int id,
                              const ROOT::Math::PxPyPzEVector &particle) {
-  // ignore pi- with low momentum
-  // it can not produce Cerenkov light in water
-  // nor can it produce michel electrons
-  if (id == -211 && particle.P() < 0.156) {
-    return;
-  }
-
   post.insert({id, particle});
   ids_post.insert(id);
 }
@@ -153,12 +141,32 @@ gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
 }
 
 void NeutrinoEvent::finalize_and_decay_in_detector() {
+  n_michel_electrons = 0;
   for (const auto &[pdg, momentum_raw] : post) {
     auto decayed_particles = gen_decay({pdg, momentum_raw});
     for (auto &&[pdg, momentum] : decayed_particles) {
       auto stg = GetSmearStrategy(pdg);
       auto smared_momentum = stg ? stg->do_smearing(momentum) : momentum;
-      in_detector.insert({pdg, {momentum, smared_momentum}});
+      pair_momentum_t momentum_pair{momentum, smared_momentum};
+      in_detector.insert({pdg, momentum_pair});
+      if (std::abs(pdg) == 11 ||
+          pdg == 22) { // e+ , e- , gamma -> shower-like ring
+        rings_in_detector.emplace_back(momentum_pair, pdg, true);
+      }
+      if (std::abs(pdg) == 13 &&
+          momentum.P() > 0.118) { // mu+ , mu- -> track-like ring, with Michel
+        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+        n_michel_electrons++;
+      }
+      if (pdg == 211 &&
+          momentum.P() > 0.156) { // pi+ -> track-like ring, with Michel
+        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+        n_michel_electrons++;
+      }
+      if (pdg == -211 &&
+          momentum.P() > 0.156) { // pi- -> track-like ring, without Michel
+        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+      }
     }
   }
 }
@@ -179,4 +187,60 @@ bool NeutrinoEvent::is_transparent() const {
       return diff_p.P() < 1e-3;
     });
   });
+}
+
+RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
+  RecResult result{};
+  switch (rings_in_detector.size()) {
+  case 3: {
+    size_t best_lepton_candidate = 0;
+    double best_pi0_candidate_m{};
+    for (size_t i = 0; i < 3; ++i) {
+      // if on epi mode, the lepton must be a muon
+      // aka. non-shower ring
+      if (is_mu_pi && !rings_in_detector[i].is_shower) {
+        continue;
+      }
+      auto sum_p4_rec_pi0 = ROOT::Math::PxPyPzEVector{};
+      for (size_t j = 0; j < 3; ++j) {
+        if (j != i) {
+          sum_p4_rec_pi0 += rings_in_detector[j].m_pair.second;
+        }
+      }
+      if (std::abs(sum_p4_rec_pi0.M() - 0.135) <
+          std::abs(best_pi0_candidate_m - 0.135)) {
+        best_pi0_candidate_m = sum_p4_rec_pi0.M();
+        best_lepton_candidate = i;
+      }
+    }
+    auto &gamma1 = rings_in_detector[(best_lepton_candidate + 1) % 3];
+    auto &gamma2 = rings_in_detector[(best_lepton_candidate + 2) % 3];
+    result.lepton = rings_in_detector[best_lepton_candidate];
+    result.leading_gamma =
+        gamma1.m_pair.second.P() > gamma2.m_pair.second.P() ? gamma1 : gamma2;
+    result.subleading_gamma =
+        gamma1.m_pair.second.P() > gamma2.m_pair.second.P() ? gamma2 : gamma1;
+    result.rec_pi0 = gamma1.m_pair + gamma2.m_pair;
+  } break;
+  case 2: {
+    // now we have 2 rings, usually one is e+/mu+ another is gamma
+    // in case of epi, it does not matter which is which
+    size_t lepton_index = 0;
+    if (is_mu_pi && rings_in_detector[0].is_shower) {
+      lepton_index = 1;
+    }
+    result.lepton = rings_in_detector[lepton_index];
+    result.rec_pi0 = rings_in_detector[1 - lepton_index].m_pair;
+    result.leading_gamma = rings_in_detector[1 - lepton_index];
+  } break;
+
+  default:
+    throw std::runtime_error("Rec_lpi_event: number of rings is not 2 or 3");
+  }
+
+  return result;
+}
+
+momentum_pair operator+(const momentum_pair &a, const momentum_pair &b) {
+  return {a.first + b.first, a.second + b.second};
 }
