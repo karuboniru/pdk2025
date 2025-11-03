@@ -22,6 +22,7 @@ struct RingInfo {
   momentum_pair m_pair;
   int from_pdg{};
   bool is_shower{};
+  bool to_remove{false};
 };
 
 struct RecResult {
@@ -50,8 +51,6 @@ private:
 
 template <typename U>
 equal_range_iterable(U &&, int) -> equal_range_iterable<U>;
-
-
 
 class NeutrinoEvent {
 public:
@@ -102,6 +101,9 @@ public:
     return std::count_if(rings_in_detector.begin(), rings_in_detector.end(),
                          [](const RingInfo &ring) { return ring.is_shower; });
   }
+
+  void post_process_rings_in_detector();
+
   size_t get_n_michel_electrons() const { return n_michel_electrons; }
 
 private:

@@ -5,6 +5,7 @@
 #include <Math/Vector3Dfwd.h>
 #include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
+#include <algorithm>
 #include <cstdlib>
 #include <ranges>
 #include <smear.h>
@@ -110,45 +111,6 @@ ROOT::Math::PxPyPzEVector construct_4D(const auto &vec, double E) {
   return ROOT::Math::PxPyPzEVector(px, py, pz, E);
 }
 
-// std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>>
-// gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
-//   // std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>> decay_products;
-//   // for (auto &&mother : to_decay){
-
-//   // }
-//   return EvtGenInterface::get_instance().decay(to_decay);
-//   // auto &&[pdg, momentum] = to_decay;
-//   // switch (pdg) {
-//   // case 111: {
-//   //   // double mass_of_pion = momentum.M();
-//   //   double mass_of_pi0 =
-//   TDatabasePDG::Instance()->GetParticle(111)->Mass();
-//   //   double energy = mass_of_pi0 / 2.;
-//   //   auto boost_vec = momentum.BoostToCM();
-//   //   // the boost from CMS to LAB frame ( so the - sign )
-//   //   auto the_boost = ROOT::Math::Boost(-boost_vec);
-//   //   double costheta_in_CMS = get_thread_local_random().Uniform(0, 1);
-//   //   double theta = acos(costheta_in_CMS);
-//   //   double phi_in_CMS = get_thread_local_random().Uniform(0, 2 * M_PI);
-//   //   ROOT::Math::Polar3DVector first_photon_momentum{energy, theta,
-//   phi_in_CMS};
-//   //   auto another_photon_momentum = -first_photon_momentum;
-
-//   //   auto first_photon = the_boost(construct_4D(first_photon_momentum,
-//   energy));
-//   //   auto second_photon =
-//   //       the_boost(construct_4D(another_photon_momentum, energy));
-
-//   //   decay_products.push_back({22, first_photon});
-//   //   decay_products.push_back({22, second_photon});
-//   // } break;
-
-//   // default:
-//   //   decay_products.emplace_back(to_decay);
-//   // }
-//   // return decay_products;
-// }
-
 void NeutrinoEvent::finalize_and_decay_in_detector() {
   n_michel_electrons = 0;
   for (const auto &[pdg, momentum_raw] : post) {
@@ -179,6 +141,35 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
       }
     }
   }
+
+  post_process_rings_in_detector();
+}
+
+void NeutrinoEvent::post_process_rings_in_detector() {
+  // loop over all rings, merge rings that are within 15 degrees
+  // and mark the merged rings to be swiped
+  for (auto &&[id1, ring1] : rings_in_detector | std::views::enumerate |
+                                 std::views::filter([](auto &&pair) {
+                                   return !std::get<1>(pair).to_remove;
+                                 })) {
+    for (auto &&ring2 : rings_in_detector | std::views::drop(id1 + 1)) {
+      const auto &&ring1_dir_true = ring1.m_pair.first.Vect().Unit();
+      const auto &&ring2_dir_true = ring2.m_pair.first.Vect().Unit();
+      double cos_angle = ring1_dir_true.Dot(ring2_dir_true);
+      const double cos_threshold = std::cos(15.0 * M_PI / 180.0);
+      if (cos_angle > cos_threshold) {
+        ring2.to_remove = true;
+        ring1.m_pair = ring1.m_pair + ring2.m_pair;
+      }
+    }
+    // and also mark rings with momentum < 15 MeV/c to be removed
+    if (ring1.m_pair.second.P() < 0.015) {
+      ring1.to_remove = true;
+    }
+  }
+  // finally remove the marked rings
+  std::ranges::remove_if(rings_in_detector,
+                         [](const RingInfo &ring) { return ring.to_remove; });
 }
 
 bool NeutrinoEvent::is_transparent() const {
