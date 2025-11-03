@@ -139,6 +139,10 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
           momentum.P() > 0.156) { // pi- -> track-like ring, without Michel
         rings_in_detector.emplace_back(momentum_pair, pdg, false);
       }
+      if (std::abs(pdg) == 321) {
+        // will be rings from kaon decay.... but ignore for now
+        n_michel_electrons++;
+      }
     }
   }
 
