@@ -10,6 +10,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ROOT REQUIRED)
+find_package(EvtGen REQUIRED)
+include_directories(
+  ${EVTGEN_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}/include
+)
 
 add_compile_definitions(DATA_PATH="${CMAKE_SOURCE_DIR}/data")
 
@@ -28,10 +33,7 @@ target_link_libraries(event
   ROOT::Physics
   ROOT::EG
   boost_program_options
-)
-
-include_directories(
-  ${CMAKE_SOURCE_DIR}/include
+  EvtGen::EvtGen
 )
 
 add_executable(main main.cxx)
@@ -46,7 +48,6 @@ target_link_options(main
   PRIVATE
   -Wl,--as-needed
 )
-
 
 add_executable(neutrinoevent neutrinoevent.cxx)
 

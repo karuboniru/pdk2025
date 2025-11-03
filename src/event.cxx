@@ -10,6 +10,8 @@
 #include <smear.h>
 #include <stdexcept>
 
+#include "decaygen.h"
+
 size_t NeutrinoEvent::count_in(int id) const { return in.count(id); }
 size_t NeutrinoEvent::count_out(int id) const { return out.count(id); }
 size_t NeutrinoEvent::count_post(int id) const { return post.count(id); }
@@ -108,42 +110,50 @@ ROOT::Math::PxPyPzEVector construct_4D(const auto &vec, double E) {
   return ROOT::Math::PxPyPzEVector(px, py, pz, E);
 }
 
-std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>>
-gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
-  std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>> decay_products;
-  auto &&[pdg, momentum] = to_decay;
-  switch (pdg) {
-  case 111: {
-    // double mass_of_pion = momentum.M();
-    double mass_of_pi0 = TDatabasePDG::Instance()->GetParticle(111)->Mass();
-    double energy = mass_of_pi0 / 2.;
-    auto boost_vec = momentum.BoostToCM();
-    // the boost from CMS to LAB frame ( so the - sign )
-    auto the_boost = ROOT::Math::Boost(-boost_vec);
-    double costheta_in_CMS = get_thread_local_random().Uniform(0, 1);
-    double theta = acos(costheta_in_CMS);
-    double phi_in_CMS = get_thread_local_random().Uniform(0, 2 * M_PI);
-    ROOT::Math::Polar3DVector first_photon_momentum{energy, theta, phi_in_CMS};
-    auto another_photon_momentum = -first_photon_momentum;
+// std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>>
+// gen_decay(const std::pair<int, ROOT::Math::PxPyPzEVector> &to_decay) {
+//   // std::vector<std::pair<int, ROOT::Math::PxPyPzEVector>> decay_products;
+//   // for (auto &&mother : to_decay){
 
-    auto first_photon = the_boost(construct_4D(first_photon_momentum, energy));
-    auto second_photon =
-        the_boost(construct_4D(another_photon_momentum, energy));
+//   // }
+//   return EvtGenInterface::get_instance().decay(to_decay);
+//   // auto &&[pdg, momentum] = to_decay;
+//   // switch (pdg) {
+//   // case 111: {
+//   //   // double mass_of_pion = momentum.M();
+//   //   double mass_of_pi0 =
+//   TDatabasePDG::Instance()->GetParticle(111)->Mass();
+//   //   double energy = mass_of_pi0 / 2.;
+//   //   auto boost_vec = momentum.BoostToCM();
+//   //   // the boost from CMS to LAB frame ( so the - sign )
+//   //   auto the_boost = ROOT::Math::Boost(-boost_vec);
+//   //   double costheta_in_CMS = get_thread_local_random().Uniform(0, 1);
+//   //   double theta = acos(costheta_in_CMS);
+//   //   double phi_in_CMS = get_thread_local_random().Uniform(0, 2 * M_PI);
+//   //   ROOT::Math::Polar3DVector first_photon_momentum{energy, theta,
+//   phi_in_CMS};
+//   //   auto another_photon_momentum = -first_photon_momentum;
 
-    decay_products.push_back({22, first_photon});
-    decay_products.push_back({22, second_photon});
-  } break;
+//   //   auto first_photon = the_boost(construct_4D(first_photon_momentum,
+//   energy));
+//   //   auto second_photon =
+//   //       the_boost(construct_4D(another_photon_momentum, energy));
 
-  default:
-    decay_products.emplace_back(to_decay);
-  }
-  return decay_products;
-}
+//   //   decay_products.push_back({22, first_photon});
+//   //   decay_products.push_back({22, second_photon});
+//   // } break;
+
+//   // default:
+//   //   decay_products.emplace_back(to_decay);
+//   // }
+//   // return decay_products;
+// }
 
 void NeutrinoEvent::finalize_and_decay_in_detector() {
   n_michel_electrons = 0;
   for (const auto &[pdg, momentum_raw] : post) {
-    auto decayed_particles = gen_decay({pdg, momentum_raw});
+    auto decayed_particles =
+        EvtGenInterface::get_instance().decay({pdg, momentum_raw});
     for (auto &&[pdg, momentum] : decayed_particles) {
       auto stg = GetSmearStrategy(pdg);
       auto smared_momentum = stg ? stg->do_smearing(momentum) : momentum;
