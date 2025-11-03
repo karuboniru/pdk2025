@@ -79,14 +79,14 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT(4);
+  // ROOT::EnableImplicitMT(4);
   TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
   auto nfile = input_files.size();
 
   auto tracker_df =
       TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
-  ROOT::RDF::Experimental::AddProgressBar(tracker_df);
+  // ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all = tracker_df
                     .Define("channel_name",
                             [](NeutrinoEvent &e) {
