@@ -79,14 +79,15 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  // ROOT::EnableImplicitMT(4);
+  ROOT::EnableImplicitMT(3);
   TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
   auto nfile = input_files.size();
 
   auto tracker_df =
       TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
-  // ROOT::RDF::Experimental::AddProgressBar(tracker_df);
+  auto event_count = tracker_df.Count();
+
   auto df_all = tracker_df
                     .Define("channel_name",
                             [](NeutrinoEvent &e) {
@@ -122,8 +123,12 @@ int main(int argc, char **argv) {
               },
               "channel_name_weight", std::map<std::string, double>{});
 
-  // auto event_count = df_all.Count();
   auto weight_sum = df_all.Sum("weight");
+  auto weight_square_sum =
+      df_all
+          .Define("weight_squared",
+                  [](double weight) { return weight * weight; }, {"weight"})
+          .Sum("weight_squared");
 
   auto df_epi_final_state =
       FilterTrackedRDF{df_all}
@@ -240,6 +245,11 @@ int main(int argc, char **argv) {
   std::println("Signal weight ratios: {}", weight_ratio_signal);
   std::println("total weight/nfile = {} / {} = {}", weight_sum.GetValue(),
                nfile, weight_sum.GetValue() / nfile);
+
+  std::println("Signal reports of {} simulation events:",
+               event_count.GetValue());
+  std::println("ESS = {}", weight_sum.GetValue() * weight_sum.GetValue() /
+                               weight_square_sum.GetValue());
 
   for (auto &signal : signals) {
     signal.Report();

@@ -80,7 +80,7 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  // ROOT::EnableImplicitMT(4);
+  ROOT::EnableImplicitMT(3);
   TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
         make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
   }
 
-  df_epi_with_vars.Snapshot("outtree", output_path + ".tree.root", to_snapshot);
+  signals[0].Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
   TFile output_file{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {
