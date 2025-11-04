@@ -7,6 +7,7 @@
 #include <TDatabasePDG.h>
 #include <algorithm>
 #include <cstdlib>
+#include <numeric>
 #include <ranges>
 #include <smear.h>
 #include <stdexcept>
@@ -148,29 +149,54 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
 
   post_process_rings_in_detector();
 }
-
 void NeutrinoEvent::post_process_rings_in_detector() {
   // loop over all rings, merge rings that are within 15 degrees
   // and mark the merged rings to be swiped
-  for (auto &&[id1, ring1] : rings_in_detector | std::views::enumerate |
-                                 std::views::filter([](auto &&pair) {
-                                   return !std::get<1>(pair).to_remove;
-                                 })) {
-    for (auto &&ring2 : rings_in_detector | std::views::drop(id1 + 1)) {
+  std::vector<size_t> disjoint_set(rings_in_detector.size());
+  auto find_root = [&](this auto &&self, size_t id) -> size_t {
+    if (disjoint_set[id] != id) {
+      disjoint_set[id] = self(disjoint_set[id]);
+    }
+    return disjoint_set[id];
+  };
+  std::iota(disjoint_set.begin(), disjoint_set.end(), 0);
+  for (auto &&[id1, ring1] : rings_in_detector | std::views::enumerate) {
+    for (auto &&[id2, ring2] : rings_in_detector | std::views::enumerate |
+                                   std::views::drop(id1 + 1)) {
       const auto &&ring1_dir_true = ring1.m_pair.first.Vect().Unit();
       const auto &&ring2_dir_true = ring2.m_pair.first.Vect().Unit();
       double cos_angle = ring1_dir_true.Dot(ring2_dir_true);
       const double cos_threshold = std::cos(15.0 * M_PI / 180.0);
       if (cos_angle > cos_threshold) {
-        ring2.to_remove = true;
-        ring1.m_pair = ring1.m_pair + ring2.m_pair;
+        // merge these two rings
+        auto root1 = find_root(id1);
+        auto root2 = find_root(id2);
+        if (root1 != root2) {
+          disjoint_set[root2] = root1;
+        }
       }
     }
-    // and also mark rings with momentum < 15 MeV/c to be removed
-    if (ring1.m_pair.second.P() < 0.015) {
-      ring1.to_remove = true;
+  }
+
+  for (auto &&[id, ring] : rings_in_detector | std::views::enumerate) {
+    auto root = find_root(id);
+    auto &root_ring = rings_in_detector[root];
+    if (root != id) {
+      // merge to root
+      root_ring.m_pair =
+          root_ring.m_pair + ring.m_pair; // sum the momentum pairs
+      root_ring.is_shower |= ring.is_shower;
+
+      ring.to_remove = true;
     }
   }
+
+  for (auto &ring : rings_in_detector) {
+    if (ring.m_pair.first.P() < 0.030) {
+      ring.to_remove = true;
+    }
+  }
+
   // finally remove the marked rings
   std::ranges::remove_if(rings_in_detector,
                          [](const RingInfo &ring) { return ring.to_remove; });
