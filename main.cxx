@@ -80,12 +80,14 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT(3);
+  // ROOT::EnableImplicitMT(3);
   TH1::AddDirectory(false);
-  auto [input_files, output_path] = parse_command_line(argc, argv);
+  auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
-  auto tracker_df = TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
-  // ROOT::RDF::Experimental::AddProgressBar(tracker_df);
+  auto tracker_df =
+      genie_mode
+          ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
+          : TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
   auto df_all =
       tracker_df
           .Define("raw_proton_momentum",

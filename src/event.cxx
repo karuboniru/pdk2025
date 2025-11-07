@@ -159,7 +159,7 @@ void NeutrinoEvent::post_process_rings_in_detector() {
     }
     return disjoint_set[id];
   };
-  std::iota(disjoint_set.begin(), disjoint_set.end(), 0);
+  std::ranges::iota(disjoint_set, 0);
   for (auto &&[id1, ring1] : rings_in_detector | std::views::enumerate) {
     for (auto &&[id2, ring2] : rings_in_detector | std::views::enumerate |
                                    std::views::drop(id1 + 1)) {

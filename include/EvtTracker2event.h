@@ -7,3 +7,4 @@
 
 ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df);
 ROOT::RDF::RNode TrackerPrepareNeutrino(ROOT::RDF::RNode df);
+ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df);
