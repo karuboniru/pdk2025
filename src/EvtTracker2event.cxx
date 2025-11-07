@@ -82,8 +82,8 @@ ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df) {
             break;
           case 1:
             e.add_post(pdg, p4);
-            if (auto abs_pdg = std::abs(pdg); abs_pdg == 11 || abs_pdg == 22) {
-              // this also counts as before FSI particle
+            if (auto abs_pdg = std::abs(pdg);
+                StdHepPdg[0] == 2212 || abs_pdg == 11 || abs_pdg == 13) {
               e.add_out(pdg, p4);
             }
             break;

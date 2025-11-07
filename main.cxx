@@ -80,7 +80,7 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  // ROOT::EnableImplicitMT(3);
+  ROOT::EnableImplicitMT(3);
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
