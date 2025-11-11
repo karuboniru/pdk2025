@@ -75,3 +75,17 @@ target_link_options(fluxint
   PRIVATE
   -Wl,--as-needed
 )
+
+
+add_executable(neutrinoeventGenie neutrinoeventGenie.cxx)
+
+# Link libraries
+target_link_libraries(neutrinoeventGenie
+  ROOT::Physics ROOT::ROOTDataFrame
+  event
+)
+
+target_link_options(neutrinoeventGenie
+  PRIVATE
+  -Wl,--as-needed
+)

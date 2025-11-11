@@ -67,6 +67,10 @@ std::string NeutrinoEvent::get_channelname() const {
   std::string channel_name;
   std::stringstream ss{};
   for (const auto &id : ids_post) {
+    if (id > 2000000000) {
+      // skip nuclei
+      continue;
+    }
     auto count = count_post(id);
     if (id == -11) {
       continue;
@@ -90,6 +94,10 @@ std::string NeutrinoEvent::get_channelname_no_nucleon() const {
   std::stringstream ss{};
   ss << "e+ ";
   for (const auto &id : ids_post) {
+    if (id > 1000000000) {
+      // skip nuclei
+      continue;
+    }
     auto count = count_post(id);
     if (id == 2212 || id == 2112 || id == -11) {
       continue;
