@@ -2,6 +2,7 @@
 #include "RtypesCore.h"
 #include "event.h"
 #include <Math/LorentzVector.h>
+#include <cmdline.h>
 #include <cstdlib>
 #include <print>
 #include <ranges>
@@ -47,10 +48,15 @@ ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
             e.add_in(pdg, p4);
             break;
           case 1:
+            if (nofsi)
+              break;
             e.add_post(pdg, p4);
             break;
           case 2:
             e.add_out(pdg, p4);
+            if (nofsi) {
+              e.add_post(pdg, p4);
+            }
             break;
           default:
             throw;
@@ -81,6 +87,8 @@ ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df) {
             e.add_in(pdg, p4);
             break;
           case 1:
+            if (nofsi)
+              break;
             e.add_post(pdg, p4);
             if (auto abs_pdg = std::abs(pdg);
                 // if  StdHepPdg[0] == 2212 then before FSI is after FSI
@@ -91,6 +99,9 @@ ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df) {
             break;
           case 14:
             e.add_out(pdg, p4);
+            if (nofsi) {
+              e.add_post(pdg, p4);
+            }
             break;
           default:
             break;
@@ -123,10 +134,15 @@ ROOT::RDF::RNode TrackerPrepareNeutrino(ROOT::RDF::RNode df) {
             e.add_in(pdg, p4);
             break;
           case 1:
+            if (nofsi)
+              break;
             e.add_post(pdg, p4);
             break;
           case 2:
             e.add_out(pdg, p4);
+            if (nofsi) {
+              e.add_post(pdg, p4);
+            }
             break;
           default:
             throw;

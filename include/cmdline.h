@@ -8,4 +8,6 @@ struct configuration {
   bool genie_mode = false;
 };
 
+static bool nofsi = false;
+
 configuration parse_command_line(int argc, char **argv);

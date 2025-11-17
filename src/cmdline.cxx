@@ -14,7 +14,9 @@ configuration parse_command_line(int argc, char **argv) {
     ("help,h", "Display this help message")
     ("input,i", po::value<std::vector<std::string>>(&config.input_files)->required(), "Input ROOT files")
     ("output,o", po::value<std::string>(&config.output_file)->required(), "Output ROOT file")
-    ("genie-mode,g", po::bool_switch(&config.genie_mode)->default_value(false), "Enable GENIE mode");
+    ("genie-mode,g", po::bool_switch(&config.genie_mode)->default_value(false), "Enable GENIE mode")
+    ("no-fsi", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
+    ;
   // clang-format on
   pos_desc.add("input", -1);
 
