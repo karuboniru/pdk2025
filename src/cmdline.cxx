@@ -3,6 +3,8 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 
+bool nofsi = false;
+
 configuration parse_command_line(int argc, char **argv) {
   namespace po = boost::program_options;
   configuration config;
