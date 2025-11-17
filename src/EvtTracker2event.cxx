@@ -87,14 +87,17 @@ ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df) {
             e.add_in(pdg, p4);
             break;
           case 1:
-            if (nofsi)
-              break;
-            e.add_post(pdg, p4);
+            if (!nofsi) {
+              e.add_post(pdg, p4);
+            }
             if (auto abs_pdg = std::abs(pdg);
                 // if  StdHepPdg[0] == 2212 then before FSI is after FSI
                 // and leptons don't undergo FSI
                 StdHepPdg[0] == 2212 || abs_pdg == 11 || abs_pdg == 13) {
               e.add_out(pdg, p4);
+              if (nofsi) {
+                e.add_post(pdg, p4);
+              }
             }
             break;
           case 14:
