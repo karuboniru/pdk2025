@@ -96,6 +96,7 @@ add_executable(genie_rate genie_rate.cxx)
 # Link libraries
 target_link_libraries(genie_rate
   ROOT::Physics ROOT::ROOTDataFrame
+  boost_program_options
 )
 
 target_link_options(genie_rate
