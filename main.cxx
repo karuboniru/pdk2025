@@ -188,18 +188,22 @@ int main(int argc, char **argv) {
               {"nrings"}, "2 or 3 rings in detector")
           .Filter(
               [](const size_t nrings, const size_t nshower_rings) {
-                return nshower_rings == nrings;
+                return is_mupi ? (nshower_rings + 1 == nrings)
+                               : (nshower_rings == nrings);
               },
-              {"nrings", "nshower_rings"}, "all shower-like rings")
+              {"nrings", "nshower_rings"},
+              std::format("{} non-shower-like rings", is_mupi ? "one" : "no"))
           .Filter(
               [](const size_t nmichel_electrons) {
-                return nmichel_electrons == 0;
+                return nmichel_electrons == (is_mupi ? 1 : 0);
               },
-              {"nmichel_electrons"}, "no michel electrons")
-          .Define(
-              "rec",
-              [](const NeutrinoEvent &event) { return event.Rec_lpi_event(); },
-              {"EventRecord"})
+              {"nmichel_electrons"},
+              std::format("{} michel electrons", is_mupi ? "one" : "no"))
+          .Define("rec",
+                  [](const NeutrinoEvent &event) {
+                    return event.Rec_lpi_event(is_mupi);
+                  },
+                  {"EventRecord"})
           .Define("electron",
                   [](const RecResult &rec) { return rec.lepton.m_pair; },
                   {"rec"})

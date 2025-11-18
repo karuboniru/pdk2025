@@ -9,5 +9,6 @@ struct configuration {
 };
 
 extern bool nofsi;
+extern bool is_mupi;
 
 configuration parse_command_line(int argc, char **argv);

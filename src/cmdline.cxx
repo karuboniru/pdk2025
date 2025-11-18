@@ -4,6 +4,7 @@
 #include <iostream>
 
 bool nofsi = false;
+bool is_mupi = false;
 
 configuration parse_command_line(int argc, char **argv) {
   namespace po = boost::program_options;
@@ -17,7 +18,8 @@ configuration parse_command_line(int argc, char **argv) {
     ("input,i", po::value<std::vector<std::string>>(&config.input_files)->required(), "Input ROOT files")
     ("output,o", po::value<std::string>(&config.output_file)->required(), "Output ROOT file")
     ("genie-mode,g", po::bool_switch(&config.genie_mode)->default_value(false), "Enable GENIE mode")
-    ("no-fsi", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
+    ("no-fsi,n", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
+    ("mu-pi-mode,m", po::bool_switch(&is_mupi)->default_value(false), "Enable mu-pi mode")
     ;
   // clang-format on
   pos_desc.add("input", -1);
