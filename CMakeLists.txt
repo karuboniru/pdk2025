@@ -89,3 +89,16 @@ target_link_options(neutrinoeventGenie
   PRIVATE
   -Wl,--as-needed
 )
+
+
+add_executable(genie_rate genie_rate.cxx)
+
+# Link libraries
+target_link_libraries(genie_rate
+  ROOT::Physics ROOT::ROOTDataFrame
+)
+
+target_link_options(genie_rate
+  PRIVATE
+  -Wl,--as-needed
+)
