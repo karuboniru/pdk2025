@@ -16,7 +16,7 @@
 struct config {
   std::string flux_file;
   std::string genie_xsec_file;
-  double emin, emax;
+  double emin{}, emax{};
 };
 
 config parse_command_line(int argc, char **argv) {
@@ -75,7 +75,7 @@ read_flux(std::string filename) {
     co_return;
   }
   for (std::string line; std::getline(file, line);) {
-    if (line.empty() || line[0] == '#' || line[1] == 'E' || line[1] == 'a')
+    if (line.empty() || line[0] == '#' || line[1] == 'E' || line[0] == 'a')
       continue; // Skip empty lines and comments
     std::pair<double, std::array<double, 4>> ret{};
     std::istringstream iss(line);
@@ -150,6 +150,14 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  auto get_obj = [&](const std::string &name) {
+    auto obj = genie_cross_section_file->Get<TGraph>(name.c_str());
+    if (!obj) {
+      throw std::runtime_error("Could not find object: " + name);
+    }
+    return obj;
+  };
+
   auto xsec_funcs =
       neutrino_name | std::views::transform([&](auto &&name) {
         return TF1{
@@ -159,12 +167,11 @@ int main(int argc, char **argv) {
                      target_name | std::views::transform([&](auto &&t_name) {
                        return std::format("{}_{}", name, t_name);
                      }) | std::views::transform([&](auto &&full_name) {
-                       auto tot_cc = genie_cross_section_file->Get<TGraph>(
-                           std::format("{}/tot_cc", full_name).c_str());
-                       auto tot_nc = genie_cross_section_file->Get<TGraph>(
-                           std::format("{}/tot_nc", full_name).c_str());
-                       return std::make_pair(from_tgraph(tot_cc),
-                                             from_tgraph(tot_nc));
+                       return std::make_pair(
+                           from_tgraph(
+                               get_obj(std::format("{}/tot_cc", full_name))),
+                           from_tgraph(
+                               get_obj(std::format("{}/tot_nc", full_name))));
                      }),
                      target_fraction, target_A) |
                  std::ranges::to<std::vector>()](const double *x,
@@ -185,22 +192,24 @@ int main(int argc, char **argv) {
             emin, emax, 0};
       });
 
+  TF1 func_sum(
+      "",
+      [func_pair =
+           std::views::zip(flux_funcs, xsec_funcs) | std::views::drop(0) |
+           std::ranges::to<std::vector>()](const double *x, const double *) {
+        return std::ranges::fold_left_first(
+                   func_pair | std::views::transform([&](const auto &pair) {
+                     const auto &[flux, xsec] = pair;
+                     return flux.Eval(x[0]) * xsec.Eval(x[0]);
+                   }),
+                   std::plus<>{})
+            .value();
+      },
+      emin, emax, 0);
+  func_sum.SetNpx(10000);
   auto res =
-      std::ranges::fold_left_first(
-          std::views::zip(flux_funcs, xsec_funcs) |
-              std::views::transform([&](const auto &pair) {
-                const auto &[flux, xsec] = pair;
-                return TF1{"",
-                           [flux, xsec](const double *x, const double *) {
-                             return flux.Eval(x[0]) * xsec.Eval(x[0]);
-                           },
-                           emin, emax, 0};
-              }) |
-              std::views::transform(
-                  [&](auto &&f) { return f.Integral(emin, emax); }),
-          std::plus<>{})
-          .value() *
-      cross_section_unit * exposure_factor;
+      func_sum.Integral(emin, emax) * cross_section_unit * exposure_factor;
+
   std::println("Total flux integrated exposure per year per Mton: {:.6e} "
                "events in range [{}, {}]",
                res, emin, emax);

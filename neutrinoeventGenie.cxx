@@ -203,6 +203,14 @@ int main(int argc, char **argv) {
 
   std::println("Wrote output to {}", output_path);
 
+  auto vec_count_per_channel =
+      count_per_channel |
+      std::ranges::to<std::vector<std::pair<std::string, size_t>>>();
+  std::ranges::sort(
+      vec_count_per_channel,
+      [](const auto &a, const auto &b) -> bool { return a.second > b.second; });
+  std::println("Channel counts: {}", vec_count_per_channel);
+
   // and the cut efficiency
   std::println("Cut efficiency report:");
   cut_efficiency->Print();
