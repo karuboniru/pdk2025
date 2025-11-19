@@ -234,18 +234,21 @@ RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
   case 3: {
     size_t best_lepton_candidate = 0;
     double best_pi0_candidate_m{};
+    // loop on candidates for lepton ring
     for (size_t i = 0; i < 3; ++i) {
       // if on epi mode, the lepton must be a muon
       // aka. non-shower ring
       if (is_mu_pi && !rings_in_detector[i].is_shower) {
         continue;
       }
+      // the remaining two rings are from pi0 decay
       auto sum_p4_rec_pi0 = ROOT::Math::PxPyPzEVector{};
       for (size_t j = 0; j < 3; ++j) {
         if (j != i) {
           sum_p4_rec_pi0 += rings_in_detector[j].m_pair.second;
         }
       }
+      // accpet the candidate if its mass is closer to pi0 mass
       if (std::abs(sum_p4_rec_pi0.M() - 0.135) <
           std::abs(best_pi0_candidate_m - 0.135)) {
         best_pi0_candidate_m = sum_p4_rec_pi0.M();
