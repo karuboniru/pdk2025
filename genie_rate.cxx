@@ -58,6 +58,7 @@ constexpr auto target_name = std::to_array({"H1", "O16"});
 constexpr auto target_A = std::to_array({1, 16});
 constexpr auto target_fraction =
     std::to_array({2. / 18., 16. / 18.}); // in nucleon number (H2O)
+constexpr auto channel_name = std::to_array({"tot_cc", "tot_nc"});
 
 constexpr double seconds_in_year = 3600 * 365 * 24;
 constexpr double avogadro_number = 6.02214076e23;
@@ -66,6 +67,7 @@ constexpr double var_4pi = 4 * M_PI;
 constexpr double exposure_factor =
     seconds_in_year * n_nucleon_per_Mton * var_4pi;
 constexpr double cross_section_unit = 1e-42; // code to m2
+constexpr double factor = cross_section_unit * exposure_factor;
 
 std::generator<std::pair<double, std::array<double, 4>>>
 read_flux(std::string filename) {
@@ -131,11 +133,12 @@ int main(int argc, char **argv) {
     }
   }
 
-  auto flux_funcs =
-      flux_values | std::views::transform(
+  auto flux_funcs = flux_values |
+                    std::views::transform(
                         [&energy, &emin, &emax](const auto &values) mutable {
                           return make_flux_function(energy, values, emin, emax);
-                        });
+                        }) |
+                    std::ranges::to<std::vector>();
 
   auto genie_cross_section_file = std::unique_ptr<TFile, void (*)(TFile *)>{
       TFile::Open(genie_xsec_file.c_str(), "READ"), [](TFile *f) {
@@ -158,59 +161,80 @@ int main(int argc, char **argv) {
     return obj;
   };
 
-  auto xsec_funcs =
-      neutrino_name | std::views::transform([&](auto &&name) {
+  auto xsec_func_ccnc =
+      std::views::cartesian_product(neutrino_name, channel_name) |
+      std::views::transform([&](auto &&names) {
+        const auto &[nu_name, chan_name] = names;
         return TF1{
-            std::format("xsec_{}", name).c_str(),
+            "",
             [xsec_data =
                  std::views::zip(
                      target_name | std::views::transform([&](auto &&t_name) {
-                       return std::format("{}_{}", name, t_name);
+                       return std::format("{}_{}/{}", nu_name, t_name,
+                                          chan_name);
                      }) | std::views::transform([&](auto &&full_name) {
-                       return std::make_pair(
-                           from_tgraph(
-                               get_obj(std::format("{}/tot_cc", full_name))),
-                           from_tgraph(
-                               get_obj(std::format("{}/tot_nc", full_name))));
+                       return from_tgraph(get_obj(full_name));
                      }),
                      target_fraction, target_A) |
                  std::ranges::to<std::vector>()](const double *x,
                                                  const double *) {
+              auto E = x[0];
               return std::ranges::fold_left_first(
                          xsec_data |
-                             std::views::transform(
-                                 [E = x[0]](const auto &data_frac) {
-                                   const auto &[graphs, frac, A] = data_frac;
-                                   const auto &[tot_cc, tot_nc] = graphs;
-                                   double xs_cc = tot_cc.Eval(E);
-                                   double xs_nc = tot_nc.Eval(E);
-                                   return (xs_cc + xs_nc) * frac / A;
-                                 }),
+                             std::views::transform([E](const auto &data_frac) {
+                               const auto &[graph, frac, A] = data_frac;
+                               double xs = graph.Eval(E);
+                               return xs * frac / A;
+                             }),
                          std::plus<>{})
                   .value();
             },
             emin, emax, 0};
       });
 
-  TF1 func_sum(
-      "",
-      [func_pair =
-           std::views::zip(flux_funcs, xsec_funcs) | std::views::drop(0) |
-           std::ranges::to<std::vector>()](const double *x, const double *) {
-        return std::ranges::fold_left_first(
-                   func_pair | std::views::transform([&](const auto &pair) {
-                     const auto &[flux, xsec] = pair;
-                     return flux.Eval(x[0]) * xsec.Eval(x[0]);
-                   }),
-                   std::plus<>{})
-            .value();
-      },
-      emin, emax, 0);
-  func_sum.SetNpx(10000);
-  auto res =
-      func_sum.Integral(emin, emax) * cross_section_unit * exposure_factor;
+  auto result =
+      std::views::zip(std::views::cartesian_product(flux_funcs, channel_name),
+                      xsec_func_ccnc) |
+      std::views::transform([&](const auto &pair) {
+        const auto &[flux, xsec] = pair;
+        auto &&[flux_func, chan_name] = flux;
+        TF1 rate_func{"",
+                      [flux_func, xsec](const double *x, const double *) {
+                        return flux_func.Eval(x[0]) * xsec.Eval(x[0]);
+                      },
+                      emin, emax, 0};
+        rate_func.SetNpx(10000000);
+        auto res = rate_func.Integral(emin, emax, 1e-10);
+        auto fluxint = flux_func.Integral(emin, emax);
+        auto xsec_avg = res / fluxint;
+        return std::make_pair(res * factor, xsec_avg);
+      }) |
+      std::ranges::to<std::vector>();
+  std::println("Flux integrated exposure per year per Mton events in range "
+               "[{}, {}]: ",
+               emin, emax);
+  for (const auto &pair : std::views::zip(
+           std::views::cartesian_product(neutrino_name, channel_name),
+           result)) {
+    const auto &[names, value] = pair;
+    const auto &[nu_name, chan_name] = names;
+    std::println("\t{:<9} {:<6}: {:.6e} with xsec = {} ", nu_name, chan_name,
+                 value.first, value.second);
+  }
 
-  std::println("Total flux integrated exposure per year per Mton: {:.6e} "
-               "events in range [{}, {}]",
-               res, emin, emax);
+  std::println("total: {:.6e}",
+               std::ranges::fold_left_first(result | std::views::elements<0>,
+                                            std::plus<>{})
+                   .value());
+
+  std::ranges::for_each(
+      std::views::zip(neutrino_name,
+                      flux_funcs | std::views::transform([&](auto &f) {
+                        f.SetNpx(100000);
+                        return f.Integral(emin, emax);
+                      })),
+      [](const auto &pair) {
+        const auto &[chan_name, flux_int] = pair;
+        std::println("Flux integral for channel {} : {}", chan_name, flux_int);
+      });
 }
