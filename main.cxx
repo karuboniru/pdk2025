@@ -256,6 +256,9 @@ int main(int argc, char **argv) {
                                       0.0, 1.2};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
 
+  histograms.emplace_back(
+      make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
+
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
     histograms.emplace_back(make_plot(df_all, inv_mass_model, varname));

@@ -80,7 +80,7 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  // ROOT::EnableImplicitMT(3);
+  ROOT::EnableImplicitMT(3);
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
@@ -177,6 +177,8 @@ int main(int argc, char **argv) {
   ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 400,
                                       0.0, 1.2};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
+  histograms.emplace_back(
+      make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
 
   for (auto &p_var : p_list) {
     histograms.emplace_back(

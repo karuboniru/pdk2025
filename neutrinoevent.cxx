@@ -194,6 +194,9 @@ int main(int argc, char **argv) {
                                       0.0, 1.0};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
 
+  histograms.emplace_back(
+      make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
+
   histograms.reserve(p_list.size() + mass_list.size());
   for (auto &p_var : p_list) {
     histograms.emplace_back(
