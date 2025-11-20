@@ -149,10 +149,11 @@ int main(int argc, char **argv) {
                 return nmichel_electrons == (is_mupi ? 1 : 0);
               },
               {"nmichel_electrons"}, "no michel electrons")
-          .Define(
-              "rec",
-              [](const NeutrinoEvent &event) { return event.Rec_lpi_event(is_mupi); },
-              {"EventRecord"})
+          .Define("rec",
+                  [](const NeutrinoEvent &event) {
+                    return event.Rec_lpi_event(is_mupi);
+                  },
+                  {"EventRecord"})
           .Define("electron",
                   [](const RecResult &rec) { return rec.lepton.m_pair; },
                   {"rec"})
