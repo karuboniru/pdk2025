@@ -90,40 +90,50 @@ int main(int argc, char **argv) {
           : TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
   auto event_count = tracker_df.Count();
 
-  auto df_all = tracker_df
-                    .Define("channel_name",
-                            [](NeutrinoEvent &e) {
-                              return e.get_channelname_no_nucleon();
-                            },
-                            {"EventRecord"})
-                    .Define("NeutrinoEnergy",
-                            [](const ROOT::RVec<double> &StdHepP4_) {
-                              return StdHepP4_[3];
-                            },
-                            {"StdHepP4"});
-  auto count_per_channel =
-      df_all
+  auto df_all =
+      tracker_df
+          .Define(
+              "channel_name",
+              [](NeutrinoEvent &e) { return e.get_channelname_no_nucleon(); },
+              {"EventRecord"})
+          .Define(
+              "NeutrinoEnergy",
+              [](const ROOT::RVec<double> &StdHepP4_) { return StdHepP4_[3]; },
+              {"StdHepP4"})
           .Define("channel_name_weight",
                   [](const std::string &name,
                      double weight) -> std::pair<std::string, double> {
                     return std::make_pair(name, weight);
                   },
-                  {"channel_name", "weight"})
-          .Aggregate(
-              [](std::map<std::string, double> &data,
-                 const std::pair<std::string, double> &col) {
-                auto &[name, weight] = col;
-                data[name] += weight;
-              },
-              [](std::vector<std::map<std::string, double>> &to_merge) {
-                for (auto &target = to_merge[0];
-                     const auto &item : to_merge | std::views::drop(1)) {
-                  for (const auto &[key, value] : item) {
-                    target[key] += value;
-                  }
-                }
-              },
-              "channel_name_weight", std::map<std::string, double>{});
+                  {"channel_name", "weight"});
+
+  auto df_to_channelmap = [](auto df) {
+    return df.Aggregate(
+        [](std::map<std::string, double> &data,
+           const std::pair<std::string, double> &col) {
+          auto &[name, weight] = col;
+          data[name] += weight;
+        },
+        [](std::vector<std::map<std::string, double>> &to_merge) {
+          for (auto &target = to_merge[0];
+               const auto &item : to_merge | std::views::drop(1)) {
+            for (const auto &[key, value] : item) {
+              target[key] += value;
+            }
+          }
+        },
+        "channel_name_weight", std::map<std::string, double>{});
+  };
+
+  auto count_per_channel = df_to_channelmap(df_all);
+
+  auto channels_per_nrings =
+      std::views::iota(2, 4) | std::views::transform([&](int i) {
+        return std::make_tuple(
+            i, df_to_channelmap(df_all.Filter(
+                   [=](size_t nrings) { return nrings == i; }, {"nrings"})));
+      }) |
+      std::ranges::to<std::vector>();
 
   auto weight_sum = df_all.Sum("weight");
   auto weight_square_sum =
@@ -220,26 +230,48 @@ int main(int argc, char **argv) {
   output_file.Close();
 
   std::println("Wrote output to {}", output_path);
+  auto print_top_channels = [&](const std::map<std::string, double> &data) {
+    constexpr size_t nmin = 6;
+    std::array<std::pair<std::string, size_t>, nmin> data_top{};
+    std::ranges::partial_sort_copy(data, data_top,
+                                   [](const auto &a, const auto &b) -> bool {
+                                     return a.second > b.second;
+                                   });
+    for (const auto &[chan, count] : data_top) {
+      std::println("  {:<12s} : {:<6.3f} %", chan,
+                   count / (double)weight_sum.GetValue() * 100.);
+    }
+  };
 
-  auto vec_count_per_channel =
-      count_per_channel |
-      std::ranges::to<std::vector<std::pair<std::string, double>>>();
-  std::ranges::sort(
-      vec_count_per_channel,
-      [](const auto &a, const auto &b) -> bool { return a.second > b.second; });
-  std::println("Channel counts: {}", vec_count_per_channel);
+  std::println("Channel counts for all events:");
+  print_top_channels(count_per_channel.GetValue());
 
-  auto entries_to_plot = vec_count_per_channel | std::views::take(4) |
-                         std::ranges::to<std::vector>();
-  entries_to_plot.emplace_back(
-      "Other",
-      weight_sum.GetValue() - std::accumulate(entries_to_plot.begin(),
-                                              entries_to_plot.end(), 0.,
-                                              [](size_t sum, const auto &pair) {
-                                                return sum + pair.second;
-                                              }));
-  std::println("Entries to plot: {}", entries_to_plot);
-  make_pie_plot(entries_to_plot, output_path + ".pie.eps");
+  for (auto &&[nrings, channel_map] : channels_per_nrings) {
+    std::println("Channel counts for events with {} rings:", nrings);
+    print_top_channels(channel_map.GetValue());
+  }
+
+  // auto vec_count_per_channel =
+  //     count_per_channel |
+  //     std::ranges::to<std::vector<std::pair<std::string, double>>>();
+  // std::ranges::sort(
+  //     vec_count_per_channel,
+  //     [](const auto &a, const auto &b) -> bool { return a.second > b.second;
+  //     });
+  // std::println("Channel counts: {}", vec_count_per_channel);
+
+  // auto entries_to_plot = vec_count_per_channel | std::views::take(4) |
+  //                        std::ranges::to<std::vector>();
+  // entries_to_plot.emplace_back(
+  //     "Other",
+  //     weight_sum.GetValue() - std::accumulate(entries_to_plot.begin(),
+  //                                             entries_to_plot.end(), 0.,
+  //                                             [](size_t sum, const auto
+  //                                             &pair) {
+  //                                               return sum + pair.second;
+  //                                             }));
+  // std::println("Entries to plot: {}", entries_to_plot);
+  // make_pie_plot(entries_to_plot, output_path + ".pie.eps");
 
   auto weight_ratio_signal = weight_sum_signal |
                              std::views::transform([&weight_sum](auto w) {

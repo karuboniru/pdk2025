@@ -97,19 +97,33 @@ int main(int argc, char **argv) {
                               return StdHepP4_[3];
                             },
                             {"StdHepP4"});
-  auto count_per_channel = df_all.Aggregate(
-      [](std::map<std::string, std::size_t> &data, const std::string &col) {
-        data[col]++;
-      },
-      [](std::vector<std::map<std::string, std::size_t>> &to_merge) {
-        for (auto &target = to_merge[0];
-             const auto &item : to_merge | std::views::drop(1)) {
-          for (const auto &[key, value] : item) {
-            target[key] += value;
+
+  auto df_to_channelmap = [](auto df) {
+    return df.Aggregate(
+        [](std::map<std::string, std::size_t> &data, const std::string &col) {
+          data[col]++;
+        },
+        [](std::vector<std::map<std::string, std::size_t>> &to_merge) {
+          for (auto &target = to_merge[0];
+               const auto &item : to_merge | std::views::drop(1)) {
+            for (const auto &[key, value] : item) {
+              target[key] += value;
+            }
           }
-        }
-      },
-      "channel_name", std::map<std::string, std::size_t>{});
+        },
+        "channel_name", std::map<std::string, std::size_t>{});
+  };
+
+  auto count_per_channel = df_to_channelmap(df_all);
+
+  auto channels_per_nrings =
+      std::views::iota(2, 4) | std::views::transform([&](int i) {
+        return std::make_tuple(
+            i, df_to_channelmap(df_all.Filter(
+                   [=](size_t nrings) { return nrings == i; }, {"nrings"})));
+      }) |
+      std::ranges::to<std::vector>();
+
   auto make_hist = []() { return TH1D("", "", 400, 0, 1.2); };
 
   auto event_count = df_all.Count();
@@ -205,13 +219,26 @@ int main(int argc, char **argv) {
 
   std::println("Wrote output to {}", output_path);
 
-  auto vec_count_per_channel =
-      count_per_channel |
-      std::ranges::to<std::vector<std::pair<std::string, size_t>>>();
-  std::ranges::sort(
-      vec_count_per_channel,
-      [](const auto &a, const auto &b) -> bool { return a.second > b.second; });
-  std::println("Channel counts: {}", vec_count_per_channel);
+  auto print_top_channels = [&](const std::map<std::string, size_t> &data) {
+    constexpr size_t nmin = 6;
+    std::array<std::pair<std::string, size_t>, nmin> data_top{};
+    std::ranges::partial_sort_copy(data, data_top,
+                                   [](const auto &a, const auto &b) -> bool {
+                                     return a.second > b.second;
+                                   });
+    for (const auto &[chan, count] : data_top) {
+      std::println("  {:<12s} : {:<6.3f} %", chan,
+                   count / (double)event_count.GetValue() * 100.);
+    }
+  };
+
+  std::println("Channel counts for all events:");
+  print_top_channels(count_per_channel.GetValue());
+
+  for (auto &&[nrings, channel_map] : channels_per_nrings) {
+    std::println("Channel counts for events with {} rings:", nrings);
+    print_top_channels(channel_map.GetValue());
+  }
 
   // and the cut efficiency
   std::println("Cut efficiency report:");
