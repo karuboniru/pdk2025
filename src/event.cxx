@@ -206,8 +206,10 @@ void NeutrinoEvent::post_process_rings_in_detector() {
   }
 
   // finally remove the marked rings
-  std::ranges::remove_if(rings_in_detector,
-                         [](const RingInfo &ring) { return ring.to_remove; });
+  const auto &new_end = std::ranges::remove_if(
+      rings_in_detector, [](const RingInfo &ring) { return ring.to_remove; });
+  // c++ sucks
+  rings_in_detector.erase(new_end.begin(), new_end.end());
 }
 
 bool NeutrinoEvent::is_transparent() const {
