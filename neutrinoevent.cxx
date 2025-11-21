@@ -85,9 +85,7 @@ int main(int argc, char **argv) {
   auto nfile = input_files.size();
 
   auto tracker_df =
-      genie_mode
-          ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
-          : TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
+      TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", input_files});
   auto event_count = tracker_df.Count();
 
   auto df_all =

@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   auto tracker_df =
       genie_mode
           ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
-          : TrackerPrepare(ROOT::RDataFrame{"out_tree", input_files});
+          : TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
   auto df_all =
       tracker_df
           .Define("raw_proton_momentum",
