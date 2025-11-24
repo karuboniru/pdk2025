@@ -7,8 +7,10 @@
 #include <utility>
 #include <vector>
 
+using momentum_t = ROOT::Math::PxPyPzEVector;
+
 using pair_momentum_t =
-    std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>;
+    std::pair<momentum_t, momentum_t>;
 using momentum_pair = pair_momentum_t;
 
 // struct momentum_pair {

@@ -25,6 +25,7 @@
 #include "cmdline.h"
 #include "commondefine.h"
 #include "event.h"
+#include "kf.h"
 #include "smear.h"
 
 ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
@@ -199,11 +200,29 @@ int main(int argc, char **argv) {
               },
               {"nmichel_electrons"},
               std::format("{} michel electrons", is_mupi ? "one" : "no"))
-          .Define("rec",
-                  [](const NeutrinoEvent &event) {
-                    return event.Rec_lpi_event(is_mupi);
-                  },
-                  {"EventRecord"})
+          .Define(
+              "rec",
+              [](const NeutrinoEvent &event) {
+                auto rec = event.Rec_lpi_event(is_mupi);
+                // if it is 3 ring event, do kinematic fit for pi0
+                if (rec.subleading_gamma.has_value()) {
+                  auto kf_result =
+                      kf_pi0({rec.leading_gamma.m_pair.second,
+                              rec.subleading_gamma->m_pair.second});
+                  if (kf_result.has_value()) {
+                    auto new_pi0 = kf_result.value()[0] + kf_result.value()[1];
+                    std::println(
+                        "KF succeeded: original pi0 mass = {:.3f} MeV, "
+                        "kf pi0 mass = {:.3f} MeV",
+                        rec.rec_pi0->second.M() * 1000., new_pi0.M() * 1000.);
+                    rec.rec_pi0->second = new_pi0;
+                  } else {
+                    std::println("KF failed");
+                  }
+                }
+                return rec;
+              },
+              {"EventRecord"})
           .Define("electron",
                   [](const RecResult &rec) { return rec.lepton.m_pair; },
                   {"rec"})

@@ -32,6 +32,7 @@ target_link_libraries(event
   PUBLIC
   ROOT::Physics
   ROOT::EG
+  ROOT::Minuit2
   boost_program_options
   EvtGen::EvtGen
 )
