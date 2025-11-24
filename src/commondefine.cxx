@@ -26,7 +26,7 @@ DefineForEPi(ROOT::RDF::RNode all_with_vars_in) {
 
   auto name_p4_pairs =
       std::to_array({"electron", "lead_photon", "sublead_photon", "pi0_system",
-                     "epi_system"});
+                     "epi_system", "epi_system_nokf", "epi_system_idealpi0"});
 
   for (const auto &name : name_p4_pairs) {
     all_with_vars = all_with_vars
