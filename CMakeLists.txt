@@ -105,3 +105,17 @@ target_link_options(genie_rate
   PRIVATE
   -Wl,--as-needed
 )
+
+add_executable(freeproton freeproton.cxx)
+
+# Link libraries
+target_link_libraries(freeproton
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+)
+
+target_link_options(freeproton
+  PRIVATE
+  -Wl,--as-needed
+)
