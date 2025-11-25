@@ -16,28 +16,12 @@
 #include <ranges>
 
 ROOT::Math::PxPyPzEVector
-change_vector(const ROOT::Math::PxPyPzEVector &original, double theta,
-              double phi, double mag) {
-  auto unit_vect_of_target = original.Vect().Unit();
-  double angle_of_orig_to_z = -std::acos(unit_vect_of_target.z());
-  // the rotation that rotate z axis to the target
-  ROOT::Math::XYZVector rotate_vec{unit_vect_of_target.y(),
-                                   -unit_vect_of_target.x(), 0};
-  const ROOT::Math::AxisAngle the_rec_rot(rotate_vec, angle_of_orig_to_z);
-
-  // consider the vector before rotate is along z-axis, and an another vector
-  // next to it given by (theta,phi), the the rotation that moves z to the
-  // vector before rotate will also move (theta,phi) to the desired direction
-  const ROOT::Math::XYZVector to_rot{
-      ROOT::Math::Polar3D<double>{original.P(), theta, phi}};
-  auto new_space_vec = the_rec_rot(to_rot);
-
-  // scale to the desired magnitude, and construct the final 4D vector
-  // assuming gamma (massless) so E = |p|
-  auto result = ROOT::Math::PxPyPzEVector(
-      new_space_vec.x() * mag, new_space_vec.y() * mag, new_space_vec.z() * mag,
-      original.P() * mag);
-  return result;
+change_vector(const ROOT::Math::PxPyPzEVector &original, double dx, double dy,
+              double dz) {
+  ROOT::Math::XYZVector vec3d{original.x() + dx, original.y() + dy,
+                              original.z() + dz};
+  double energy = vec3d.R();
+  return ROOT::Math::PxPyPzEVector{vec3d.x(), vec3d.y(), vec3d.z(), energy};
 }
 
 constexpr double chi2(double value, double center, double sigma) {
@@ -50,15 +34,13 @@ class SingleKFLagMul final : public ROOT::Minuit2::FCNBase {
 public:
   std::array<momentum_t, 2>
   get_fitted_gammas(const std::vector<double> &params) const {
-    double theta1 = params[0 + lagrange_parmaeter_count];
-    double phi1 = params[1 + lagrange_parmaeter_count];
-    double mag1 = params[2 + lagrange_parmaeter_count];
-    double theta2 = params[3 + lagrange_parmaeter_count];
-    double phi2 = params[4 + lagrange_parmaeter_count];
-    double mag2 = params[5 + lagrange_parmaeter_count];
     std::array<momentum_t, 2> ret{};
-    ret[0] = change_vector(gammas_[0], theta1, phi1, mag1);
-    ret[1] = change_vector(gammas_[1], theta2, phi2, mag2);
+    for (size_t i = 0; i < 2; ++i) {
+      double dx = params[lagrange_parmaeter_count + i * 3 + 0];
+      double dy = params[lagrange_parmaeter_count + i * 3 + 1];
+      double dz = params[lagrange_parmaeter_count + i * 3 + 2];
+      ret[i] = change_vector(gammas_[i], dx, dy, dz);
+    }
     return ret;
   }
 
@@ -74,14 +56,20 @@ public:
 
   double get_parameter_penalty(const std::vector<double> &params_kin) const {
     double penalty = 0.0;
-    double theta1 = params_kin[0 + lagrange_parmaeter_count];
-    double mag1 = params_kin[2 + lagrange_parmaeter_count];
-    double theta2 = params_kin[3 + lagrange_parmaeter_count];
-    double mag2 = params_kin[5 + lagrange_parmaeter_count];
-    penalty +=
-        chi2(theta1, 0.0, sigma_angle[0]) + chi2(mag1, 1.0, sigma_momentum[0]);
-    penalty +=
-        chi2(theta2, 0.0, sigma_angle[1]) + chi2(mag2, 1.0, sigma_momentum[1]);
+    auto fitted_gammas = get_fitted_gammas(params_kin);
+    for (size_t i = 0; i < 2; ++i) {
+      auto &original = gammas_[i];
+      auto &fitted = fitted_gammas[i];
+      // angle penalty
+      ROOT::Math::XYZVector orig_dir = original.Vect().Unit();
+      ROOT::Math::XYZVector fitted_dir = fitted.Vect().Unit();
+      double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
+      penalty += chi2(angle_diff, 0.0, sigma_angle[i]);
+      // momentum penalty
+      double orig_mom = original.P();
+      double fitted_mom = fitted.P();
+      penalty += chi2(fitted_mom / orig_mom, 1., sigma_momentum[i]);
+    }
     return penalty;
   }
 
@@ -125,13 +113,13 @@ ROOT::Minuit2::MnUserParameters construct_initial_parameters() {
   upar.Add("mu", 1); // not being fit but iterated
   upar.Fix("mu");
   // gamma 1 parameters
-  upar.Add("theta1", rand.Gaus(0, M_PI / 120), 0.1);
-  upar.Add("phi1", rand.Uniform(0, 2 * M_PI), 0.1);
-  upar.Add("mag1", 1.0, 0.01);
+  upar.Add("dx1", rand.Gaus(0,0.1), 0.5);
+  upar.Add("dy1", rand.Gaus(0,0.1), 0.5);
+  upar.Add("dz1", rand.Gaus(0,0.1), 0.5);
   // gamma 2 parameters
-  upar.Add("theta2", rand.Gaus(0, M_PI / 120), 0.1);
-  upar.Add("phi2", rand.Uniform(0, 2 * M_PI), 0.1);
-  upar.Add("mag2", 1.0, 0.01);
+  upar.Add("dx2", rand.Gaus(0,0.1), 0.5);
+  upar.Add("dy2", rand.Gaus(0,0.1), 0.5);
+  upar.Add("dz2", rand.Gaus(0,0.1), 0.5);
   return upar;
 }
 
@@ -150,7 +138,7 @@ kf_pi0(const std::array<momentum_t, 2> &gammas) {
       auto params = min.UserParameters().Params();
       double constraint = fcn.get_constrain(params);
       if (double penalty = fcn.get_parameter_penalty(params);
-          std::abs(constraint) < tol ) {
+          std::abs(constraint) < tol && penalty < 9) {
         return fcn.get_fitted_gammas(params);
       }
       // update lagrange multipliers
