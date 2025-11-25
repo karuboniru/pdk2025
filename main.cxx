@@ -83,7 +83,7 @@ pair_momentum_t operator+(const pair_momentum_t &a, const pair_momentum_t &b) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT(4);
+  ROOT::EnableImplicitMT(32);
   TH1::AddDirectory(false);
   auto [input_files, output_path] = parse_command_line(argc, argv);
 
