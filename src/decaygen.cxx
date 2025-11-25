@@ -18,8 +18,7 @@ EvtGenInterface &EvtGenInterface::get_instance() {
 EvtGenInterface::EvtGenInterface()
     : random_engine(std::make_unique<MyRandomEngine>()),
       evtgen(DATA_PATH "/decay/decay.dec",
-             "/cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc15-opt/share/"
-             "EvtGen/evt.pdl",
+            EVTGEN_DATA_DIR "/evt.pdl",
              random_engine.get()) {}
 
 std::vector<particle> EvtGenInterface::decay(const particle &to_decay) {
