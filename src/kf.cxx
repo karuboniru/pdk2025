@@ -1,5 +1,6 @@
 #include "kf.h"
 #include "local_rand.h"
+#include "smear.h"
 #include <Math/AxisAngle.h>
 #include <Math/Polar3D.h>
 #include <Math/Vector3D.h>
@@ -12,6 +13,7 @@
 #include <Minuit2/MnStrategy.h>
 #include <Minuit2/MnUserParameters.h>
 #include <print>
+#include <ranges>
 
 ROOT::Math::PxPyPzEVector
 change_vector(const ROOT::Math::PxPyPzEVector &original, double theta,
@@ -36,6 +38,10 @@ change_vector(const ROOT::Math::PxPyPzEVector &original, double theta,
       new_space_vec.x() * mag, new_space_vec.y() * mag, new_space_vec.z() * mag,
       original.P() * mag);
   return result;
+}
+
+constexpr double chi2(double value, double center, double sigma) {
+  return ((value - center) * (value - center)) / (sigma * sigma);
 }
 
 class SingleKFLagMul final : public ROOT::Minuit2::FCNBase {
@@ -72,17 +78,25 @@ public:
     double mag1 = params_kin[2 + lagrange_parmaeter_count];
     double theta2 = params_kin[3 + lagrange_parmaeter_count];
     double mag2 = params_kin[5 + lagrange_parmaeter_count];
-    // phi don't have penalty
-    penalty += (theta1 * theta1) / (sigma_ang_ * sigma_ang_);
-    penalty += (theta2 * theta2) / (sigma_ang_ * sigma_ang_);
-    penalty += ((mag1 - 1.0) * (mag1 - 1.0)) / (sigma_mag_ * sigma_mag_);
-    penalty += ((mag2 - 1.0) * (mag2 - 1.0)) / (sigma_mag_ * sigma_mag_);
+    penalty +=
+        chi2(theta1, 0.0, sigma_angle[0]) + chi2(mag1, 1.0, sigma_momentum[0]);
+    penalty +=
+        chi2(theta2, 0.0, sigma_angle[1]) + chi2(mag2, 1.0, sigma_momentum[1]);
     return penalty;
   }
 
-  SingleKFLagMul(const std::array<momentum_t, 2> &gammas, double sigma_ang,
-                 double sigma_mag)
-      : gammas_(gammas), sigma_ang_(sigma_ang), sigma_mag_(sigma_mag) {}
+  SingleKFLagMul(const std::array<momentum_t, 2> &gammas) : gammas_(gammas) {
+    auto gamma_smear_strategy = GetSmearStrategy(22);
+    if (!gamma_smear_strategy) {
+      throw std::runtime_error("No smear strategy for gamma (PDG 22)");
+    }
+    for (auto &&[p4, sigma_ang, sigma_mom] :
+         std::views::zip(gammas_, sigma_angle, sigma_momentum)) {
+      double e = p4.E();
+      sigma_ang = gamma_smear_strategy->get_sigma_angle(e) * M_PI / 180.0;
+      sigma_mom = gamma_smear_strategy->get_sigma_energy(e);
+    }
+  }
 
   double operator()(const std::vector<double> &params) const override {
     double lambda = params[0];
@@ -98,8 +112,8 @@ public:
 
 private:
   std::array<momentum_t, 2> gammas_;
-  double sigma_ang_;
-  double sigma_mag_;
+  std::array<double, 2> sigma_angle{};
+  std::array<double, 2> sigma_momentum{};
 };
 
 ROOT::Minuit2::MnUserParameters construct_initial_parameters() {
@@ -108,7 +122,7 @@ ROOT::Minuit2::MnUserParameters construct_initial_parameters() {
   // lagrange multipliers
   upar.Add("lambda", 0.0); // not being fit but iterated
   upar.Fix("lambda");
-  upar.Add("mu", 0.1); // not being fit but iterated
+  upar.Add("mu", 1); // not being fit but iterated
   upar.Fix("mu");
   // gamma 1 parameters
   upar.Add("theta1", rand.Gaus(0, M_PI / 120), 0.1);
@@ -124,9 +138,9 @@ ROOT::Minuit2::MnUserParameters construct_initial_parameters() {
 std::optional<std::array<momentum_t, 2>>
 kf_pi0(const std::array<momentum_t, 2> &gammas) {
   auto &rand = get_thread_local_random();
-  double sigma_angle = 0.01;     // in radian
-  double sigma_magnitude = 0.01; // fractional
-  SingleKFLagMul fcn(gammas, sigma_angle, sigma_magnitude);
+  // double sigma_angle = 0.01;     // in radian
+  // double sigma_magnitude = 0.01; // fractional
+  SingleKFLagMul fcn(gammas);
   auto upar = construct_initial_parameters();
   constexpr double tol = 1e-5;
   for (size_t iter{};; iter++) {
@@ -135,27 +149,22 @@ kf_pi0(const std::array<momentum_t, 2> &gammas) {
     if (min.IsValid()) {
       auto params = min.UserParameters().Params();
       double constraint = fcn.get_constrain(params);
-      if (std::abs(constraint) < tol) {
-        // double penalty = fcn.get_parameter_penalty(params);
-        // std::println(
-        //     "KF converged in {} iterations: constraint = {:.6e}, penalty = "
-        //     "{:.6e}",
-        //     iter, constraint, penalty);
+      if (double penalty = fcn.get_parameter_penalty(params);
+          std::abs(constraint) < tol ) {
         return fcn.get_fitted_gammas(params);
       }
       // update lagrange multipliers
       double lambda = params[0];
       double mu = params[1];
       lambda += 2 * mu * constraint;
-      if (mu < 1 / tol / tol)
-        mu *= 2;
+      mu *= 2;
       upar.SetValue("lambda", lambda);
       upar.SetValue("mu", mu);
     } else {
       // re-initialize parameters and try again
       upar = construct_initial_parameters();
     }
-    if (iter > 64) {
+    if (iter > 128) {
       std::println("KF did not converge within {} iterations, died at lambda = "
                    "{}, mu = {}",
                    iter, upar.Value("lambda"), upar.Value("mu"));

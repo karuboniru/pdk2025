@@ -194,7 +194,7 @@ public:
   SplineBasedSmear &operator=(SplineBasedSmear &&) = default;
   virtual ~SplineBasedSmear() = default;
 
-  ROOT::Math::PxPyPzEVector
+  [[nodiscard]] ROOT::Math::PxPyPzEVector
   do_smearing(ROOT::Math::PxPyPzEVector vec) const override {
     double energy = vec.E();
     double angle_sigma = m_angle_spline.Eval(energy) * m_scale_angle_smear;
@@ -206,6 +206,17 @@ public:
 
     momentum_scaling = std::max(0.0, momentum_scaling);
     return smear_momentum(smeared_vec, momentum_scaling);
+  }
+
+  [[nodiscard]] double get_sigma_energy(double energy) const override {
+    double momentum_frac =
+        m_momentum_spline.Eval(energy) / 100. * m_scale_momentum_smear;
+    return momentum_frac;
+  }
+
+  [[nodiscard]] double get_sigma_angle(double energy) const override {
+    double angle_sigma = m_angle_spline.Eval(energy) * m_scale_angle_smear;
+    return angle_sigma;
   }
 
 private:

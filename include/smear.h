@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Math/Vector4Dfwd.h>
+#include <exception>
 
 class TRandom3;
 TRandom3 &get_thread_local_random();
@@ -18,6 +19,13 @@ public:
 
   [[nodiscard]] virtual ROOT::Math::PxPyPzEVector
   do_smearing(ROOT::Math::PxPyPzEVector vec) const = 0;
+
+  [[nodiscard]] virtual double get_sigma_energy(double energy) const {
+    throw std::exception();
+  }
+  [[nodiscard]] virtual double get_sigma_angle(double energy) const {
+    throw std::exception();
+  }
 };
 
 ISmearStrategy *GetSmearStrategy(int pdg_particle);
