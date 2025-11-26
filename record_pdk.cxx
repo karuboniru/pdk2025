@@ -132,9 +132,10 @@ int main(int argc, char **argv) {
                 return EventRec{lepton, gamma_1, gamma_2};
               },
               {"rec_raw"})
-          .Define("kf_gammas",
+          .Define("kf_gammas_with_chi2",
                   [](const EventRec &smeared_opt)
-                      -> std::optional<std::array<momentum_t, 2>> {
+                      -> std::optional<
+                          std::tuple<std::array<momentum_t, 2>, double>> {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
                       return std::nullopt;
                     }
@@ -153,10 +154,30 @@ int main(int argc, char **argv) {
                         }
                       }
                     }
-                    return best_fit.transform(
-                        [](const auto &tuple) { return std::get<0>(tuple); });
+                    return best_fit;
                   },
                   {"smeared"})
+          .Define("kf_gammas",
+                  [](const std::optional<
+                      std::tuple<std::array<momentum_t, 2>, double>>
+                         &kf_gammas_with_chi2_opt)
+                      -> std::optional<std::array<momentum_t, 2>> {
+                    if (kf_gammas_with_chi2_opt.has_value()) {
+                      return std::get<0>(kf_gammas_with_chi2_opt.value());
+                    }
+                    return std::nullopt;
+                  },
+                  {"kf_gammas_with_chi2"})
+          .Define("kf_chi2",
+                  [](const std::optional<
+                      std::tuple<std::array<momentum_t, 2>, double>>
+                         &kf_gammas_with_chi2_opt) -> double {
+                    if (kf_gammas_with_chi2_opt.has_value()) {
+                      return std::get<1>(kf_gammas_with_chi2_opt.value());
+                    }
+                    return -1.0;
+                  },
+                  {"kf_gammas_with_chi2"})
           .Define(
               "kf",
               [](const EventRec &smeared_opt,
@@ -191,6 +212,6 @@ int main(int argc, char **argv) {
                    "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
                    "shower_ring_cut", "nmichel_electrons_cut",
                    // dummy weight
-                   "weight"});
+                   "weight", "kf_chi2"});
   kf_report->Print();
 }
