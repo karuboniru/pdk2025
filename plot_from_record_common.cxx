@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
                     [](const EventRec &rec) { return rec.gamma1 + rec.gamma2; },
                     {conf})
             .Define(std::format("{}_primary_lepton", conf),
-                    [](const EventRec &rec) { return rec.lepton; }, {"truth"})
+                    [](const EventRec &rec) { return rec.lepton; }, {conf})
             .Define(std::format("{}_epi_system", conf),
                     [](const EventRec &rec) {
                       return rec.lepton + rec.gamma1 + rec.gamma2;
