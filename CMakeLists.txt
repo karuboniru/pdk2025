@@ -19,6 +19,11 @@ include_directories(
 add_compile_definitions(DATA_PATH="${CMAKE_SOURCE_DIR}/data")
 add_compile_definitions(EVTGEN_DATA_DIR="${EVTGEN_DATA_DIR}")
 
+set(evtgen_thread_mode ON)
+if(evtgen_thread_mode)
+  add_compile_definitions(EVTGEN_THREAD_MODE)
+endif()
+
 file(
   GLOB
   SOURCES_EVENT

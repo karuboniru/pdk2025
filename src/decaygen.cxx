@@ -2,23 +2,35 @@
 #include "local_rand.h"
 
 #include <mutex>
+#include <thread>
+
+#ifdef EVTGEN_THREAD_MODE
+#define evtgen_static thread_local
+#else
+#define evtgen_static static
+#endif
 
 class MyRandomEngine final : public EvtRandomEngine {
 public:
   double random() override {
     return get_thread_local_random().Uniform(0.0, 1.0);
   }
+  void setSeed(unsigned long int seed) override {
+    get_thread_local_random().SetSeed(seed);
+  }
+  unsigned long int lastSeed() const override {
+    return get_thread_local_random().GetSeed();
+  }
 };
 
 EvtGenInterface &EvtGenInterface::get_instance() {
-  static EvtGenInterface instance;
+  evtgen_static EvtGenInterface instance;
   return instance;
 }
 
 EvtGenInterface::EvtGenInterface()
     : random_engine(std::make_unique<MyRandomEngine>()),
-      evtgen(DATA_PATH "/decay/decay.dec",
-            EVTGEN_DATA_DIR "/evt.pdl",
+      evtgen(DATA_PATH "/decay/decay.dec", EVTGEN_DATA_DIR "/evt.pdl",
              random_engine.get()) {}
 
 std::vector<particle> EvtGenInterface::decay(const particle &to_decay) {
@@ -28,8 +40,10 @@ std::vector<particle> EvtGenInterface::decay(const particle &to_decay) {
     EvtVector4R p4_lab(momentum.e(), momentum.x(), momentum.y(), momentum.z());
     EvtParticle *parent = EvtParticleFactory::particleFactory(parentId, p4_lab);
     {
+#ifndef EVTGEN_THREAD_MODE
       static std::mutex mtx;
       std::lock_guard<std::mutex> lock(mtx);
+#endif
       evtgen.generateDecay(parent);
     }
     auto push_daug = [&](this auto &&self, EvtParticle *p) {
