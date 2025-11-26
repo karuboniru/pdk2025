@@ -174,6 +174,8 @@ int main(int argc, char **argv) {
             std::format("angle_{}_{}_{}", conf1, conf2, system_name);
         auto momentum_ratio_var_name =
             std::format("momentum_ratio_{}_{}_{}", conf1, conf2, system_name);
+        auto energy_ratio_var_name =
+            std::format("energy_ratio_{}_{}_{}", conf1, conf2, system_name);
         df_with_define =
             df_with_define
                 .Define(angle_var_name, angle_between,
@@ -182,11 +184,19 @@ int main(int argc, char **argv) {
                         [](const momentum_t &p4_1, const momentum_t &p4_2) {
                           return p4_1.P() / p4_2.P();
                         },
+                        {system1_full_name, system2_full_name})
+                .Define(energy_ratio_var_name,
+                        [](const momentum_t &p4_1, const momentum_t &p4_2) {
+                          return p4_1.E() / p4_2.E();
+                        },
                         {system1_full_name, system2_full_name});
         histograms.emplace_back(
             make_plot(df_with_define, angle_model, angle_var_name));
         histograms.emplace_back(make_plot(df_with_define, momentum_ratio_model,
                                           momentum_ratio_var_name));
+        histograms.emplace_back(make_plot(df_with_define, momentum_ratio_model,
+                                          energy_ratio_var_name));
+        to_snapshot.emplace_back(energy_ratio_var_name);
         to_snapshot.emplace_back(momentum_ratio_var_name);
         to_snapshot.emplace_back(angle_var_name);
       }

@@ -22,8 +22,7 @@ double rayleigh_log_likelihood(double value, double sigma) {
   if (value < 0 || sigma <= 0) {
     return -std::numeric_limits<double>::infinity();
   }
-  return std::log(value / (sigma * sigma)) -
-         (value * value) / (2 * sigma * sigma);
+  return std::log(value) - ((value * value) / (2 * sigma * sigma));
 }
 
 double rayleigh_log_likelihood_normalized(double value, double sigma) {
@@ -95,9 +94,9 @@ public:
       ROOT::Math::XYZVector orig_dir = original.Vect().Unit();
       ROOT::Math::XYZVector fitted_dir = fitted.Vect().Unit();
       double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      // penalty += chi2(angle_diff, 0.0, sigma_angle[i]);
-      penalty += rayleigh_log_likelihood_normalized(angle_diff,
-      sigma_angle[i]);
+      penalty += chi2(angle_diff, 0.0, sigma_angle[i]);
+      // penalty += rayleigh_log_likelihood_normalized(angle_diff,
+      // sigma_angle[i]);
 
       // momentum penalty
       double orig_mom = original.P();

@@ -1,6 +1,7 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
 #include <ROOT/RVec.hxx>
+#include <ROOT/TTreeProcessorMT.hxx>
 #include <TDatabasePDG.h>
 #include <TMemFile.h>
 #include <TROOT.h>
@@ -29,6 +30,7 @@
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
+  // ROOT::TTreeProcessorMT::SetTasksPerWorkerHint(-1);
   ROOT::EnableImplicitMT();
   // trigger initialization of everything
   TH1::AddDirectory(false);
