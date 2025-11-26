@@ -72,8 +72,8 @@ int main(int argc, char **argv) {
   ROOT::RDF::TH1DModel momentum_ratio_model{"momentum_ratio_epip_system",
                                             "momentum ratio", 400, 0.0, 2.0};
   std::vector<std::string> to_snapshot{
-      "raw_proton_momentum", "raw_mass_proton", "final_state_system",
-      "raw_pi0_before_fsi", "channel_name",
+      "raw_proton_momentum", "raw_mass_proton", "raw_pi0_before_fsi",
+      "channel_name",
       // cut and topology info
       "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
       "shower_ring_cut", "nmichel_electrons_cut",
