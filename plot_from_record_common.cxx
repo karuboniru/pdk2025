@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
       "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
       "shower_ring_cut", "nmichel_electrons_cut",
       // dummy weight
-      "weight"};
+      "weight", "kf_chi2"};
   auto topo_cut_pass =
       df_all
           .FilterTracked([](bool x) { return x; }, {"nrings_cut"},
