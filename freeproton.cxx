@@ -33,6 +33,10 @@ int main(int argc, char **agrv) {
   const std::string lepton_name =
       TDatabasePDG::Instance()->GetParticle(pdg_lepton)->GetName();
   const size_t event_count = argc > 2 ? std::atoi(agrv[2]) : 1000000;
+  const std::string output_filename =
+      argc > 3
+          ? std::string(agrv[3])
+          : std::format("proton_decay_{}pi.{}.root", lepton_name, event_count);
 
   ROOT::EnableImplicitMT();
 
@@ -93,6 +97,8 @@ int main(int argc, char **agrv) {
           "pdg",
           [=]() { return std::array<int, 5>{2212, 111, pdg_lepton, 111, -11}; })
       .Define("status", []() { return std::array<int, 5>{0, 1, 1, 2, 2}; })
-      .Snapshot("outtree", std::format("proton_decay_{}pi.{}.root", lepton_name, event_count),
-                {"nparticles", "P", "pdg", "status"});
+      .Snapshot(
+          "outtree",
+          output_filename,
+          {"nparticles", "P", "pdg", "status"});
 }
