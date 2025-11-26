@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <optional>
+#include <algorithm>
+#include <TObject.h>
 
 using momentum_t = ROOT::Math::PxPyPzEVector;
 

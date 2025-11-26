@@ -11,6 +11,7 @@
 #include <ranges>
 #include <smear.h>
 #include <stdexcept>
+#include <optional>
 
 #include "decaygen.h"
 

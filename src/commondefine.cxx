@@ -1,4 +1,5 @@
 #include "commondefine.h"
+#include "data.h"
 #include "event.h"
 
 auto iter_pair(auto &iter_range) {
@@ -26,7 +27,7 @@ DefineForEPi(ROOT::RDF::RNode all_with_vars_in) {
 
   auto name_p4_pairs =
       std::to_array({"electron", "lead_photon", "sublead_photon", "pi0_system",
-                     "epi_system", "epi_system_nokf", "epi_system_idealpi0"});
+                     "epi_system"});
 
   for (const auto &name : name_p4_pairs) {
     all_with_vars = all_with_vars
@@ -160,6 +161,42 @@ std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
       "reconstructed proton momentum upper region (>= 100 MeV)");
   auto signal_lower = signal.FilterTracked(
       [](double rec_p_p) { return rec_p_p < 0.1; }, {"smared_epi_system_p"},
+      "reconstructed proton momentum lower region (< 100 MeV)");
+  return {signal, signal_upper, signal_lower};
+}
+
+std::array<FilterTrackedRDF, 3> FilterSignalKinematicsNew(FilterTrackedRDF df) {
+  auto signal =
+      df.FilterTracked(
+            [](const EventRec &evt, size_t nrings) {
+              if (nrings == 2)
+                return true;
+              double rec_m_pi0 = (evt.gamma1 + evt.gamma2).M();
+              return (rec_m_pi0 > 0.085 && rec_m_pi0 < 0.185);
+            },
+            {"thisevt", "nrings"},
+            "reconstructed pi0 mass cut (85-185 MeV) for 3 rings event")
+          .Define("p4_p",
+                  [](const EventRec &evt) {
+                    auto p4sum = evt.lepton + evt.gamma1 + evt.gamma2;
+                    return p4sum;
+                  },
+                  {"thisevt"})
+          .FilterTracked(
+              [](const momentum_t &p4_p) {
+                double rec_m_p = p4_p.M();
+                return rec_m_p > 0.8 && rec_m_p < 1.05;
+              },
+              {"p4_p"}, "reconstructed proton mass cut (800-1050 MeV)")
+          .Define("p_p", [](const momentum_t &p4_p) { return p4_p.P(); },
+                  {"p4_p"})
+          .FilterTracked([](double rec_p_p) { return rec_p_p < 0.25; }, {"p_p"},
+                         "reconstructed proton momentum cut (< 250 MeV)");
+  auto signal_upper = signal.FilterTracked(
+      [](double rec_p_p) { return rec_p_p >= 0.1; }, {"p_p"},
+      "reconstructed proton momentum upper region (>= 100 MeV)");
+  auto signal_lower = signal.FilterTracked(
+      [](double rec_p_p) { return rec_p_p < 0.1; }, {"p_p"},
       "reconstructed proton momentum lower region (< 100 MeV)");
   return {signal, signal_upper, signal_lower};
 }

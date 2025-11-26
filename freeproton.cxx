@@ -93,6 +93,6 @@ int main(int argc, char **agrv) {
           "pdg",
           [=]() { return std::array<int, 5>{2212, 111, pdg_lepton, 111, -11}; })
       .Define("status", []() { return std::array<int, 5>{0, 1, 1, 2, 2}; })
-      .Snapshot("outtree", std::format("proton_decay_{}pi.root", lepton_name),
+      .Snapshot("outtree", std::format("proton_decay_{}pi.{}.root", lepton_name, event_count),
                 {"nparticles", "P", "pdg", "status"});
 }

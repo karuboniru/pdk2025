@@ -1,6 +1,7 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
 #include <ROOT/RVec.hxx>
+#include <TDatabasePDG.h>
 #include <TMemFile.h>
 #include <TROOT.h>
 #include <array>
@@ -24,6 +25,7 @@
 #include "EvtTracker2event.h"
 #include "cmdline.h"
 #include "commondefine.h"
+#include "decaygen.h"
 #include "event.h"
 #include "kf.h"
 #include "smear.h"
@@ -81,7 +83,10 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT(8);
+  ROOT::EnableImplicitMT();
+  // trigger initialization of everything
+  EvtGenInterface::get_instance();
+  TDatabasePDG::Instance();
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
@@ -89,6 +94,7 @@ int main(int argc, char **argv) {
       genie_mode
           ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
           : TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
+  ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all =
       tracker_df
           .Define("raw_proton_momentum",
@@ -212,21 +218,21 @@ int main(int argc, char **argv) {
                   {"EventRecord"})
           .Define("rec_KF",
                   [](RecResult rec) -> std::optional<RecResult> {
-                    if (rec.subleading_gamma.has_value()) {
-                      auto kf_result =
-                          kf_pi0({rec.leading_gamma.m_pair.second,
-                                  rec.subleading_gamma->m_pair.second});
-                      if (kf_result.has_value()) {
-                        auto new_pi0 =
-                            kf_result.value()[0] + kf_result.value()[1];
-                        rec.rec_pi0->second = new_pi0;
-                        rec.leading_gamma.m_pair.second = kf_result.value()[0];
-                        rec.subleading_gamma->m_pair.second =
-                            kf_result.value()[1];
-                        return rec;
-                      }
-                      std::println("KF failed");
-                    }
+                    // if (rec.subleading_gamma.has_value()) {
+                    //   auto kf_result =
+                    //       kf_pi0({rec.leading_gamma.m_pair.second,
+                    //               rec.subleading_gamma->m_pair.second});
+                    //   if (kf_result.has_value()) {
+                    //     auto new_pi0 =
+                    //         kf_result.value()[0] + kf_result.value()[1];
+                    //     rec.rec_pi0->second = new_pi0;
+                    //     rec.leading_gamma.m_pair.second = kf_result.value()[0];
+                    //     rec.subleading_gamma->m_pair.second =
+                    //         kf_result.value()[1];
+                    //     return rec;
+                    //   }
+                    //   // std::println("KF failed");
+                    // }
                     return std::nullopt;
                   },
                   {"rec_raw"})
@@ -267,15 +273,15 @@ int main(int argc, char **argv) {
           .Define("epi_system_idealpi0",
                   [](const RecResult &rec) {
                     return rec.lepton.m_pair +
-                           std::make_pair(
-                              rec.rec_pi0->first, rec.rec_pi0->first);
+                           std::make_pair(rec.rec_pi0->first,
+                                          rec.rec_pi0->first);
                   },
-                  {"rec_raw"})
-          ;
+                  {"rec_raw"});
 
   auto angle_before_fit =
       df_epi_final_state
-          .Filter([](const size_t nrings) { return nrings == 3; }, {"nrings"})
+          .Filter([](const size_t nrings) { return nrings == 3; }, {"nrings"},
+                  "3 rings in detector (pre. cond. for KF)")
           .Define("angle_2gamma_true",
                   [&](const RecResult &rec) {
                     if (rec.subleading_gamma.has_value()) {
@@ -301,7 +307,7 @@ int main(int argc, char **argv) {
               [](const std::optional<RecResult> &rec_opt) {
                 return rec_opt.has_value();
               },
-              {"rec_KF"})
+              {"rec_KF"}, "KF succeeded")
           .Define("angle_2gamma_smeared_KF",
                   [&](const std::optional<RecResult> &rec_opt) {
                     const auto &rec = rec_opt.value();
@@ -310,6 +316,8 @@ int main(int argc, char **argv) {
                   },
                   {"rec_KF"});
 
+  auto kf_rate = angle_after_fit.Report();
+
   ROOT::RDF::TH1DModel angle_model{"angle_2gamma", "angle between 2 gammas",
                                    180, 0.0, 180.};
 
@@ -317,7 +325,7 @@ int main(int argc, char **argv) {
       DefineForEPi(ROOT::RDF::RNode{df_epi_final_state});
 
   std::ranges::copy(std::to_array({"raw_proton_momentum", "raw_mass_proton",
-                                   "raw_pi0_before_fsi"}),
+                                   "raw_pi0_before_fsi", "nrings"}),
                     std::back_inserter(to_snapshot));
   std::ranges::copy(
       std::to_array({"raw_pi0_before_fsi", "raw_proton_momentum"}),
@@ -422,4 +430,7 @@ int main(int argc, char **argv) {
   cut_efficiency_lower->Print();
   std::println("Cut efficiency report(upper region):");
   cut_efficiency_upper->Print();
+
+  std::println("KF success rate report:");
+  kf_rate->Print();
 }

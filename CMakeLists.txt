@@ -4,8 +4,6 @@ project(MyProject)
 # Find Boost components
 find_package(Boost REQUIRED COMPONENTS program_options)
 
-# Enable LINK_WHAT_YOU_USE
-set(CMAKE_LINK_WHAT_YOU_USE TRUE)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -30,7 +28,7 @@ file(
   CONFIGURE_DEPENDS
   src/*.cxx
 )
-add_library(event OBJECT
+add_library(event SHARED
   ${SOURCES_EVENT}
 )
 
@@ -41,6 +39,13 @@ target_link_libraries(event
   ROOT::Minuit2
   boost_program_options
   EvtGen::EvtGen
+)
+
+root_generate_dictionary(
+  G__event
+  include/data.h
+  MODULE event
+  LINKDEF include/dataLinkDef.h
 )
 
 add_executable(main main.cxx)
@@ -123,4 +128,25 @@ target_link_libraries(freeproton
 target_link_options(freeproton
   PRIVATE
   -Wl,--as-needed
+)
+
+add_executable(record_pdk record_pdk.cxx)
+
+# Link libraries
+target_link_libraries(record_pdk
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
+
+
+add_executable(plot_from_record_common plot_from_record_common.cxx)
+
+# Link libraries
+target_link_libraries(plot_from_record_common
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
 )
