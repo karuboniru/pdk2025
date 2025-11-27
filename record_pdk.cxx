@@ -178,6 +178,31 @@ int main(int argc, char **argv) {
                     return -1.0;
                   },
                   {"kf_gammas_with_chi2"})
+          .Define("kf_3d",
+                  [](const EventRec &smeared_opt) -> gamma_dof {
+                    if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
+                      return gamma_dof{};
+                    }
+                    decltype(kf_pi0_3D(
+                        {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
+                        std::nullopt;
+                    for (int i = 0; i < 6; ++i) {
+                      auto fit_result =
+                          kf_pi0_3D({smeared_opt.gamma1, smeared_opt.gamma2});
+                      if (fit_result.has_value()) {
+                        // choose the best fit based on smallest chi2
+                        if (!best_fit.has_value() ||
+                            std::get<1>(fit_result.value()) <
+                                std::get<1>(best_fit.value())) {
+                          best_fit = fit_result;
+                        }
+                      }
+                    }
+                    return best_fit
+                        .transform([](const auto &t) { return std::get<0>(t); })
+                        .value_or(gamma_dof{});
+                  },
+                  {"smeared"})
           .Define(
               "kf",
               [](const EventRec &smeared_opt,
@@ -212,6 +237,6 @@ int main(int argc, char **argv) {
                    "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
                    "shower_ring_cut", "nmichel_electrons_cut",
                    // dummy weight
-                   "weight", "kf_chi2"});
+                   "weight", "kf_chi2", "kf_3d"});
   kf_report->Print();
 }

@@ -26,3 +26,9 @@ public:
 
   ClassDef(EventRec, 2)
 };
+
+
+struct gamma_dof{
+  double E1, E2;
+  double theta_oa;
+};

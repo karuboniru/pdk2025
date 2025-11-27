@@ -8,10 +8,10 @@
 #include <algorithm>
 #include <cstdlib>
 #include <numeric>
+#include <optional>
 #include <ranges>
 #include <smear.h>
 #include <stdexcept>
-#include <optional>
 
 #include "decaygen.h"
 
@@ -262,9 +262,9 @@ RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
     auto &gamma2 = rings_in_detector[(best_lepton_candidate + 2) % 3];
     result.lepton = rings_in_detector[best_lepton_candidate];
     result.leading_gamma =
-        gamma1.m_pair.second.P() > gamma2.m_pair.second.P() ? gamma1 : gamma2;
+        gamma1.m_pair.first.P() > gamma2.m_pair.first.P() ? gamma1 : gamma2;
     result.subleading_gamma =
-        gamma1.m_pair.second.P() > gamma2.m_pair.second.P() ? gamma2 : gamma1;
+        gamma1.m_pair.first.P() > gamma2.m_pair.first.P() ? gamma2 : gamma1;
     result.rec_pi0 = gamma1.m_pair + gamma2.m_pair;
   } break;
   case 2: {
