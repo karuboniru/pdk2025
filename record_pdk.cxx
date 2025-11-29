@@ -1,5 +1,6 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
+#include <ROOT/RResultPtr.hxx>
 #include <ROOT/RVec.hxx>
 #include <ROOT/TTreeProcessorMT.hxx>
 #include <TDatabasePDG.h>
@@ -26,6 +27,17 @@
 #include "event.h"
 #include "kf.h"
 #include "smear.h"
+
+struct dist_struct {
+  ROOT::RDF::RResultPtr<double> mean;
+  ROOT::RDF::RResultPtr<double> sigma;
+};
+
+dist_struct get_dist(ROOT::RDF::RNode df, const std::string &var_name) {
+  auto mean = df.Mean(var_name);
+  auto sigma = df.StdDev(var_name);
+  return dist_struct{mean, sigma};
+}
 
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
@@ -186,9 +198,34 @@ int main(int argc, char **argv) {
                     decltype(kf_pi0_3D(
                         {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
                         std::nullopt;
-                    for (int i = 0; i < 6; ++i) {
+                    for (int i = 0; i < 1; ++i) {
                       auto fit_result =
                           kf_pi0_3D({smeared_opt.gamma1, smeared_opt.gamma2});
+                      if (fit_result.has_value()) {
+                        // choose the best fit based on smallest chi2
+                        if (!best_fit.has_value() ||
+                            std::get<1>(fit_result.value()) <
+                                std::get<1>(best_fit.value())) {
+                          best_fit = fit_result;
+                        }
+                      }
+                    }
+                    return best_fit
+                        .transform([](const auto &t) { return std::get<0>(t); })
+                        .value_or(gamma_dof{});
+                  },
+                  {"smeared"})
+          .Define("kf_3d_1",
+                  [](const EventRec &smeared_opt) -> gamma_dof {
+                    if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
+                      return gamma_dof{};
+                    }
+                    decltype(kf_pi0_3D_1(
+                        {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
+                        std::nullopt;
+                    for (int i = 0; i < 1; ++i) {
+                      auto fit_result =
+                          kf_pi0_3D_1({smeared_opt.gamma1, smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -227,6 +264,31 @@ int main(int argc, char **argv) {
                        .Filter([](const EventRec &rec) { return rec.is_valid; },
                                {"kf"}, "valid KF")
                        .Report();
+  auto particles =
+      df_all
+          .Filter([](size_t nrings) { return nrings == 3; }, {"nrings"},
+                  "nrings_cut")
+          .Define("smeared_pi0",
+                  [](const EventRec &rec) { return rec.gamma1 + rec.gamma2; },
+                  {"smeared"})
+          .Define("smeared_proton",
+                  [](const EventRec &rec) {
+                    return rec.lepton + (rec.gamma1 + rec.gamma2);
+                  },
+                  {"smeared"});
+  auto sigma_smeared_pi0_mass = particles.Define(
+      "smeared_pi0_mass",
+      [](const momentum_t &pi0_opt) -> double { return pi0_opt.M(); },
+      {"smeared_pi0"});
+  auto sigma_smeared_proton_mass = particles.Define(
+      "smeared_proton_mass",
+      [](const momentum_t &proton_opt) -> double { return proton_opt.M(); },
+      {"smeared_proton"});
+  auto [mean_smeared_pi0_mass, sigma_smeared_pi0_mass_value] =
+      get_dist(sigma_smeared_pi0_mass, "smeared_pi0_mass");
+  auto [mean_smeared_proton_mass, sigma_smeared_proton_mass_value] =
+      get_dist(sigma_smeared_proton_mass, "smeared_proton_mass");
+
   df_all.Snapshot("outtree", output_path,
                   {// reconstructed variables
                    "truth", "smeared", "kf",
@@ -237,6 +299,14 @@ int main(int argc, char **argv) {
                    "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
                    "shower_ring_cut", "nmichel_electrons_cut",
                    // dummy weight
-                   "weight", "kf_chi2", "kf_3d"});
+                   "weight", "kf_chi2", "kf_3d", "kf_3d_1"});
+
+  std::println("Mean smeared pi0 mass: {} +- {}",
+               mean_smeared_pi0_mass.GetValue(),
+               sigma_smeared_pi0_mass_value.GetValue());
+  std::println("Mean smeared proton mass: {} +- {}",
+               mean_smeared_proton_mass.GetValue(),
+               sigma_smeared_proton_mass_value.GetValue());
+
   kf_report->Print();
 }

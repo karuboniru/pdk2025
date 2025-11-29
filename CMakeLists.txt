@@ -6,6 +6,7 @@ find_package(Boost REQUIRED COMPONENTS program_options)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 
 find_package(ROOT REQUIRED)
 find_package(EvtGen REQUIRED)

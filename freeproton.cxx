@@ -5,6 +5,7 @@
 #include <Math/Vector3D.h>
 #include <Math/Vector4D.h>
 #include <ROOT/RDataFrame.hxx>
+#include <ROOT/RSnapshotOptions.hxx>
 #include <ROOT/TTreeProcessorMT.hxx>
 #include <TDatabasePDG.h>
 #include <array>
@@ -33,10 +34,14 @@ int main(int argc, char **agrv) {
   const std::string lepton_name =
       TDatabasePDG::Instance()->GetParticle(pdg_lepton)->GetName();
   const size_t event_count = argc > 2 ? std::atoi(agrv[2]) : 1000000;
+  const int cluster_size = event_count / 96;
   const std::string output_filename =
       argc > 3
           ? std::string(agrv[3])
           : std::format("proton_decay_{}pi.{}.root", lepton_name, event_count);
+
+  ROOT::RDF::RSnapshotOptions options;
+  options.fAutoFlush = cluster_size;
 
   ROOT::EnableImplicitMT();
 
@@ -100,5 +105,5 @@ int main(int argc, char **agrv) {
       .Snapshot(
           "outtree",
           output_filename,
-          {"nparticles", "P", "pdg", "status"});
+          {"nparticles", "P", "pdg", "status"}, options);
 }

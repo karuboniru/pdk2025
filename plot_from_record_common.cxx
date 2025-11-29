@@ -78,11 +78,13 @@ int main(int argc, char **argv) {
       "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
       "shower_ring_cut", "nmichel_electrons_cut",
       // dummy weight
-      "weight", "kf_chi2"};
+      "weight", "kf_chi2", "E1", "E2", "theta_oa"};
   auto topo_cut_pass =
       df_all
           .FilterTracked([](bool x) { return x; }, {"nrings_cut"},
                          "2 or 3 rings topology")
+          .FilterTracked([](size_t x) { return x == 3; }, {"nrings"},
+                         "3 rings topology")
           .FilterTracked([](bool x) { return x; }, {"shower_ring_cut"},
                          "0 (epi) or 1(mupi) shower-like ring")
           .FilterTracked([](bool x) { return x; }, {"nmichel_electrons_cut"},
@@ -114,17 +116,9 @@ int main(int argc, char **argv) {
                     },
                     {conf})
             .Define(std::format("{}_lead_photon", conf),
-                    [](const EventRec &rec) {
-                      return rec.gamma1.P() > rec.gamma2.P() ? rec.gamma1
-                                                             : rec.gamma2;
-                    },
-                    {conf})
+                    [](const EventRec &rec) { return rec.gamma1; }, {conf})
             .Define(std::format("{}_sublead_photon", conf),
-                    [](const EventRec &rec) {
-                      return rec.gamma1.P() < rec.gamma2.P() ? rec.gamma1
-                                                             : rec.gamma2;
-                    },
-                    {conf});
+                    [](const EventRec &rec) { return rec.gamma2; }, {conf});
 
     for (auto &&[id, system1] : systems | std::views::enumerate) {
       for (auto &&system2 : systems | std::views::drop(id + 1)) {
@@ -148,19 +142,26 @@ int main(int argc, char **argv) {
     auto system_full_name = std::format("{}_{}", named_define, system_name);
     auto mass_var_name = system_full_name + "_m";
     auto momentum_var_name = system_full_name + "_p";
+    auto energy_var_name = system_full_name + "_E";
     df_with_define =
         df_with_define
             .Define(mass_var_name, [](const momentum_t &p4) { return p4.M(); },
                     {system_full_name})
             .Define(momentum_var_name,
                     [](const momentum_t &p4) { return p4.P(); },
+                    {system_full_name})
+            .Define(energy_var_name,
+                    [](const momentum_t &p4) { return p4.E(); },
                     {system_full_name});
+    to_snapshot.emplace_back(energy_var_name);
     to_snapshot.emplace_back(mass_var_name);
     to_snapshot.emplace_back(momentum_var_name);
     histograms.emplace_back(
         make_plot(df_with_define, inv_mass_model, mass_var_name));
     histograms.emplace_back(
         make_plot(df_with_define, momentum_model, momentum_var_name));
+    histograms.emplace_back(
+        make_plot(df_with_define, momentum_model, energy_var_name));
   }
 
   for (auto &&[id1, conf1] : confs | std::views::enumerate) {
@@ -203,8 +204,49 @@ int main(int argc, char **argv) {
     }
   }
 
+  histograms.emplace_back(make_plot(
+      df_with_define
+          .Define("e_pi0_3dof",
+                  [](const double e1, const double e2) { return e1 + e2; },
+                  {"E1", "E2"})
+          .Filter([](double e_pi0_3dof) { return e_pi0_3dof > 0.0; },
+                  {"e_pi0_3dof"}, "e_pi0_3dof positive"),
+      momentum_model, "e_pi0_3dof", ""));
+
+  histograms.emplace_back(
+      make_plot(df_with_define, angle_model, "theta_oa", ""));
+
+  auto stddev_pi0_energy_kf_minus_truth =
+      df_with_define
+          .Define("stddev_pi0_energy_kf_minus_truth",
+                  "kf_pi0_system_E - truth_pi0_system_E")
+          .StdDev("stddev_pi0_energy_kf_minus_truth");
+  auto stddev_pi0_energy_kf_minus_truth_select =
+      df_with_define.Filter("kf_chi2>=0 && kf_chi2<4")
+          .Define("stddev_pi0_energy_kf_minus_truth",
+                  "kf_pi0_system_E - truth_pi0_system_E")
+          .StdDev("stddev_pi0_energy_kf_minus_truth");
+  auto stddev_pi0_energy_smeared_minus_truth =
+      df_with_define
+          .Define("stddev_pi0_energy_smeared_minus_truth",
+                  "smeared_pi0_system_E - truth_pi0_system_E")
+          .StdDev("stddev_pi0_energy_smeared_minus_truth");
+  auto stddev_pi0_energy_yang_minus_truth =
+      df_with_define
+          .Define("stddev_pi0_energy_smeared_minus_truth",
+                  "E1+ E2 - truth_pi0_system_E")
+          .StdDev("stddev_pi0_energy_smeared_minus_truth");
+
   df_with_define.Snapshot("outtree", (basename + "_with_vars.root"),
                           to_snapshot);
+  std::println("Stddev of pi0 energy (smeared - truth): {:.4f} GeV",
+               *stddev_pi0_energy_smeared_minus_truth);
+  std::println(
+      "Stddev of pi0 energy (kf - truth): {:.4f} GeV, {:.4f} GeV (chi2<4)",
+      *stddev_pi0_energy_kf_minus_truth,
+      *stddev_pi0_energy_kf_minus_truth_select);
+  std::println("Stddev of pi0 energy (yang - truth): {:.4f} GeV",
+               *stddev_pi0_energy_yang_minus_truth);
 
   TFile fout{output_path.c_str(), "RECREATE"};
   for (auto &hist : histograms) {

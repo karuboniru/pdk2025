@@ -31,7 +31,7 @@ parse_response_file(std::string filepath) {
     if (!(iss >> energy >> value)) {
       throw std::runtime_error("Error parsing line: " + line);
     }
-    co_yield std::make_pair(energy, value);
+    co_yield std::make_pair(energy / 1000., value);
   }
   infile.close();
 }
@@ -52,6 +52,9 @@ static std::map<int, std::unique_ptr<ISmearStrategy>> smear_strategies;
 // angle: the angle in degrees to smear the vector by
 ROOT::Math::PxPyPzEVector smear_angle(const ROOT::Math::PxPyPzEVector &original,
                                       double angle) {
+  if (angle == 0.0) {
+    return original;
+  }
   double angle_rad = angle * M_PI / 180.0;
   auto phi = get_thread_local_random().Uniform(0, 2 * M_PI);
 
@@ -231,8 +234,8 @@ void initializeGaussianSmearStrategy() {
   auto mom_file = DATA_PATH "/11/momentum";
   auto ang_spline = build_spline_from_file(ang_file);
   auto mom_spline = build_spline_from_file(mom_file);
-  double scale_ang = 0.8;
-  double scale_mom = 0.5;
+  double scale_ang = 1.2;
+  double scale_mom = 0.9;
   smear_strategies[11] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[-11] = std::make_unique<SplineBasedSmear>(
@@ -242,5 +245,5 @@ void initializeGaussianSmearStrategy() {
   smear_strategies[-13] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[22] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.45, 0.45);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.0, 1.);
 }
