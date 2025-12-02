@@ -44,7 +44,7 @@ change_vector(const ROOT::Math::PxPyPzEVector &original, double dx, double dy,
 class Problem6D {
 public:
   static constexpr size_t kinematic_parameter_count = 6;
-  static constexpr size_t constrain_count = 5;
+  static constexpr size_t constrain_count = 3;
   static constexpr double chi2_cut = 16;
   using answer_t = std::array<momentum_t, 2>;
   Problem6D(answer_t measured_) : measured(std::move(measured_)) {
@@ -65,20 +65,15 @@ public:
     auto fitted = get_measured_from_parameters(params_kin);
     auto pi0_momentum = fitted[0] + fitted[1];
     constrains[0] = pi0_momentum.M() - 0.134977;
-    // gamma 1 direction constrain
-    ROOT::Math::XYZVector orig_dir_1 = measured[0].Vect().Unit();
-    ROOT::Math::XYZVector fitted_dir_1 = fitted[0].Vect().Unit();
+    // reconstructed pi0 follows preserved momentum
+    auto orig_pi0_momentum = measured[0] + measured[1];
+    auto reconstructed_unit = pi0_momentum.Vect().Unit();
+    auto original_unit = orig_pi0_momentum.Vect().Unit();
     constrains[1] =
-        orig_dir_1.x() - fitted_dir_1.x(); // constrain on x component
+        reconstructed_unit.X() - original_unit.X(); // px conservation
     constrains[2] =
-        orig_dir_1.y() - fitted_dir_1.y(); // constrain on y component
-    // gamma 2 direction constrain
-    ROOT::Math::XYZVector orig_dir_2 = measured[1].Vect().Unit();
-    ROOT::Math::XYZVector fitted_dir_2 = fitted[1].Vect().Unit();
-    constrains[3] =
-        orig_dir_2.x() - fitted_dir_2.x(); // constrain on x component
-    constrains[4] =
-        orig_dir_2.y() - fitted_dir_2.y(); // constrain on y component
+        reconstructed_unit.Y() - original_unit.Y(); // py conservation
+
     return constrains;
   }
 
@@ -88,10 +83,10 @@ public:
     for (auto &&[orig, fit, s_ang, s_mom] :
          std::views::zip(measured, fitted, sigma_angle, sigma_momentum)) {
       // angle penalty
-      // ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
-      // ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
-      // double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      // penalty += chi2(angle_diff, 0.0, s_ang);
+      ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
+      ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
+      double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
+      penalty += chi2(angle_diff, 0.0, s_ang);
       // penalty += rayleigh_log_likelihood_normalized(angle_diff, s_ang);
 
       // momentum penalty
@@ -133,9 +128,8 @@ private:
   std::array<double, 2> sigma_momentum{};
 };
 
-using KFPi0Solver = SingleKFLagMul<Problem6D>;
+using KFPi0Solver = SingleKFLagMul<Problem6D, 0.5, 0.0, 2.0>;
 std::optional<std::tuple<std::array<momentum_t, 2>, double>>
 kf_pi0(const std::array<momentum_t, 2> &gammas) {
   return KFPi0Solver::do_kinematics_fit(gammas);
-  // return std::nullopt;
 }

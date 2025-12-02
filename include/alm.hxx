@@ -23,9 +23,9 @@ class SingleKFLagMul final : public ROOT::Minuit2::FCNBase, public T {
     double mu = hyper_parameter_initial_mu;
   };
 
+public:
   std::array<hyper_parameters_t, constrain_count> hyper_parameters;
 
-public:
   using T::get_constrain;
   using T::get_measured_from_parameters;
   using T::get_parameter_penalty;
@@ -58,8 +58,10 @@ public:
     constexpr double tol = 1e-5;
     SingleKFLagMul<T> fcn(input);
     auto upar = fcn.generate_initial_parameters();
+    unsigned int default_strategy = 0;
     for (size_t iter{};; iter++) {
-      ROOT::Minuit2::MnMigrad migrad(fcn, upar, ROOT::Minuit2::MnStrategy{2});
+      ROOT::Minuit2::MnMigrad migrad(
+          fcn, upar, ROOT::Minuit2::MnStrategy{default_strategy});
       ROOT::Minuit2::FunctionMinimum min = migrad();
       if (min.IsValid()) {
         auto params = min.UserParameters().Params();
@@ -79,6 +81,8 @@ public:
         }
       } else {
         // bad fit, regenerate initial parameters
+        default_strategy = std::min(2u, default_strategy + 1);
+        fcn.hyper_parameters = {}; // reset hyper parameters
         upar = fcn.generate_initial_parameters();
       }
       if (iter > 128) {

@@ -24,3 +24,5 @@ using para_view_t = std::span<const double>;
 constexpr double chi2(double value, double center, double sigma) {
   return ((value - center) * (value - center)) / (sigma * sigma);
 }
+
+size_t guess_nproc_from_env();

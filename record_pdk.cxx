@@ -23,6 +23,7 @@
 
 #include "EvtTracker2event.h"
 #include "cmdline.h"
+#include "common_tools.hxx"
 #include "data.h"
 #include "event.h"
 #include "kf.h"
@@ -43,7 +44,7 @@ int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
   // ROOT::TTreeProcessorMT::SetTasksPerWorkerHint(-1);
-  ROOT::EnableImplicitMT();
+  ROOT::EnableImplicitMT(guess_nproc_from_env());
   // trigger initialization of everything
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
@@ -144,19 +145,19 @@ int main(int argc, char **argv) {
                 return EventRec{lepton, gamma_1, gamma_2};
               },
               {"rec_raw"})
-          .Define("kf_gammas_with_chi2",
+          .Define("kf_full_with_chi2",
                   [](const EventRec &smeared_opt)
                       -> std::optional<
-                          std::tuple<std::array<momentum_t, 2>, double>> {
+                          std::tuple<std::array<momentum_t, 3>, double>> {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
                       return std::nullopt;
                     }
-                    decltype(kf_pi0(
-                        {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
-                        std::nullopt;
-                    for (int i = 0; i < 6; ++i) {
+                    std::optional<std::tuple<std::array<momentum_t, 3>, double>>
+                        best_fit = std::nullopt;
+                    for (int i = 0; i < 2; ++i) {
                       auto fit_result =
-                          kf_pi0({smeared_opt.gamma1, smeared_opt.gamma2});
+                          kf_pi0_full({smeared_opt.lepton, smeared_opt.gamma1,
+                                       smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -169,38 +170,38 @@ int main(int argc, char **argv) {
                     return best_fit;
                   },
                   {"smeared"})
-          .Define("kf_gammas",
-                  [](const std::optional<
-                      std::tuple<std::array<momentum_t, 2>, double>>
-                         &kf_gammas_with_chi2_opt)
-                      -> std::optional<std::array<momentum_t, 2>> {
-                    if (kf_gammas_with_chi2_opt.has_value()) {
-                      return std::get<0>(kf_gammas_with_chi2_opt.value());
-                    }
-                    return std::nullopt;
-                  },
-                  {"kf_gammas_with_chi2"})
+          .Define(
+              "kf_full",
+              [](const std::optional<std::tuple<std::array<momentum_t, 3>,
+                                                double>> &kf_full_with_chi2_opt)
+                  -> std::optional<std::array<momentum_t, 3>> {
+                if (kf_full_with_chi2_opt.has_value()) {
+                  return std::get<0>(kf_full_with_chi2_opt.value());
+                }
+                return std::nullopt;
+              },
+              {"kf_full_with_chi2"})
           .Define("kf_chi2",
                   [](const std::optional<
-                      std::tuple<std::array<momentum_t, 2>, double>>
-                         &kf_gammas_with_chi2_opt) -> double {
-                    if (kf_gammas_with_chi2_opt.has_value()) {
-                      return std::get<1>(kf_gammas_with_chi2_opt.value());
+                      std::tuple<std::array<momentum_t, 3>, double>>
+                         &kf_full_with_chi2_opt) -> double {
+                    if (kf_full_with_chi2_opt.has_value()) {
+                      return std::get<1>(kf_full_with_chi2_opt.value());
                     }
                     return -1.0;
                   },
-                  {"kf_gammas_with_chi2"})
+                  {"kf_full_with_chi2"})
           .Define("kf_3d",
                   [](const EventRec &smeared_opt) -> gamma_dof {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
                       return gamma_dof{};
                     }
-                    decltype(kf_pi0_3D(
+                    decltype(kf_pi0_3D_ALM(
                         {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
                         std::nullopt;
                     for (int i = 0; i < 1; ++i) {
-                      auto fit_result =
-                          kf_pi0_3D({smeared_opt.gamma1, smeared_opt.gamma2});
+                      auto fit_result = kf_pi0_3D_ALM(
+                          {smeared_opt.gamma1, smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -220,12 +221,12 @@ int main(int argc, char **argv) {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
                       return gamma_dof{};
                     }
-                    decltype(kf_pi0_3D_1(
+                    decltype(kf_pi0_3D_ALM(
                         {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
                         std::nullopt;
                     for (int i = 0; i < 1; ++i) {
-                      auto fit_result =
-                          kf_pi0_3D_1({smeared_opt.gamma1, smeared_opt.gamma2});
+                      auto fit_result = kf_pi0_3D_ALM(
+                          {smeared_opt.gamma1, smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -243,20 +244,19 @@ int main(int argc, char **argv) {
           .Define(
               "kf",
               [](const EventRec &smeared_opt,
-                 const std::optional<std::array<momentum_t, 2>> &kf_gammas_opt)
+                 const std::optional<std::array<momentum_t, 3>> &kf_full_opt)
                   -> EventRec {
                 // return EventRec{};
                 if (!smeared_opt.is_valid) {
                   return EventRec{};
                 }
-                if (kf_gammas_opt.has_value()) {
-                  auto kf_gammas = kf_gammas_opt.value();
-                  return EventRec{smeared_opt.lepton, kf_gammas[0],
-                                  kf_gammas[1]};
+                if (kf_full_opt.has_value()) {
+                  auto kf_full = kf_full_opt.value();
+                  return EventRec{kf_full[0], kf_full[1], kf_full[2]};
                 }
                 return EventRec{};
               },
-              {"smeared", "kf_gammas"})
+              {"smeared", "kf_full"})
           .Define("weight", []() { return 1.0; }, {});
   auto kf_report = df_all
                        .Filter([](size_t nrings) { return nrings == 3; },

@@ -3,6 +3,7 @@
 #include <Math/Boost.h>
 #include <Math/Vector3D.h>
 #include <Math/Vector3Dfwd.h>
+#include <Math/Vector4D.h>
 #include <Math/Vector4Dfwd.h>
 #include <TDatabasePDG.h>
 #include <algorithm>
@@ -198,6 +199,17 @@ void NeutrinoEvent::post_process_rings_in_detector() {
 
       ring.to_remove = true;
     }
+  }
+
+  // for shower like rings, set smeared energy to zero mass 4-vector
+  // since we always consider this as electromagnetic shower (gamma/e+/e-)
+  for (auto &ring :
+       rings_in_detector | std::views::filter([](const RingInfo &r) {
+         return r.is_shower && !r.to_remove;
+       })) {
+    auto smeared = ring.m_pair.second;
+    ring.m_pair.second =
+        ROOT::Math::PxPyPzMVector(smeared.x(), smeared.y(), smeared.z(), 0.0);
   }
 
   for (auto &ring : rings_in_detector) {

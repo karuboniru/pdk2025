@@ -6,10 +6,12 @@
 #include <Math/Vector4D.h>
 #include <Rtypes.h>
 #include <TChain.h>
+#include <TF1.h>
 #include <TGraph.h>
 #include <TRandom.h>
 #include <TSpline.h>
 #include <TVector3.h>
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <generator>
@@ -31,15 +33,62 @@ parse_response_file(std::string filepath) {
     if (!(iss >> energy >> value)) {
       throw std::runtime_error("Error parsing line: " + line);
     }
-    co_yield std::make_pair(energy / 1000., value);
+    co_yield std::make_pair(energy, value);
   }
   infile.close();
 }
 
+class smear_angle_generation {
+public:
+  static smear_angle_generation &
+  get_instance(const std::string &filepath = DATA_PATH "/11/angular_raw") {
+    static smear_angle_generation instance(filepath);
+    return instance;
+  }
+
+  double get_smeared_angle() const {
+    double cdf = get_thread_local_random().Uniform(0, 1);
+    return InverseCDFSpline.Eval(cdf);
+  }
+
+private:
+  smear_angle_generation(std::string filepath) {
+    constexpr size_t num_points = 500;
+    std::vector<double> x_vals, y_vals;
+    for (const auto &[x, y] : parse_response_file(filepath)) {
+      x_vals.push_back(x);
+      y_vals.push_back(y);
+    }
+    // create a spline from the data
+    auto min = x_vals.front();
+    auto max = x_vals.back();
+    TSpline3 spline("response_spline", x_vals.data(), y_vals.data(),
+                    x_vals.size());
+    TF1 angle_smear_func(
+        "angle_smear_func",
+        [&spline](double *x, double *p) { return spline.Eval(x[0]); }, min, max,
+        0);
+    std::array<double, num_points> x_range{}, cdf_values{};
+    double step = (max - min) / (num_points - 1);
+    for (size_t i = 0; i < num_points; ++i) {
+      x_range[i] = x_vals.front() + (i * step);
+      cdf_values[i] = angle_smear_func.Integral(min, x_range[i]);
+    }
+    // normalize CDF values
+    double total_integral = cdf_values[num_points - 1];
+    for (auto &val : cdf_values) {
+      val /= total_integral;
+    }
+    InverseCDFSpline = TSpline3("inverse_cdf_spline", cdf_values.data(),
+                                x_range.data(), num_points);
+  }
+  TSpline3 InverseCDFSpline;
+};
+
 TSpline3 build_spline_from_file(std::string filepath) {
   std::vector<double> x_vals, y_vals;
   for (const auto &[x, y] : parse_response_file(filepath)) {
-    x_vals.push_back(x);
+    x_vals.push_back(x / 1000.); // convert MeV to GeV
     y_vals.push_back(y);
   }
   return TSpline3("response_spline", x_vals.data(), y_vals.data(),
@@ -122,8 +171,12 @@ public:
   virtual ~SmearRayleighDirection() = default;
 
   ROOT::Math::PxPyPzEVector do_smearing(ROOT::Math::PxPyPzEVector vec) const {
-    double cdf = get_thread_local_random().Uniform(0, 1);
-    double angle = m_sigma * std::sqrt(-2.0 * std::log(cdf));
+    // double cdf = get_thread_local_random().Uniform(0, 1);
+    // double angle = m_sigma * std::sqrt(-2.0 * std::log(cdf));
+    auto angle = smear_angle_generation::get_instance().get_smeared_angle() /
+                 2.91 * m_sigma;
+    // cap angle at 25
+    angle = std::min(angle, 25.0);
     return smear_angle(vec, angle);
   }
 
@@ -153,27 +206,6 @@ public:
 
 private:
   double m_momentum_frac;
-};
-
-class EnergyDependentSmear : public ISmearStrategy {
-public:
-  EnergyDependentSmear(const std::string &configuration = {}) {}
-  EnergyDependentSmear(const EnergyDependentSmear &) = default;
-  EnergyDependentSmear(EnergyDependentSmear &&) = default;
-  EnergyDependentSmear &operator=(const EnergyDependentSmear &) = default;
-  EnergyDependentSmear &operator=(EnergyDependentSmear &&) = default;
-  virtual ~EnergyDependentSmear() = default;
-
-  ROOT::Math::PxPyPzEVector do_smearing(ROOT::Math::PxPyPzEVector vec) const {
-    double energy = vec.E();
-    auto momentum_scaling_sigma = 0.05 / energy + 0.01;
-    double momentum_scaling =
-        get_thread_local_random().Gaus(1, momentum_scaling_sigma);
-    momentum_scaling = std::max(0.0, momentum_scaling);
-    auto smeared_vec = smear_momentum(vec, momentum_scaling);
-    double angle_param = 3.0 / std::sqrt(energy);
-    return SmearRayleighDirection{angle_param}.do_smearing(smeared_vec);
-  }
 };
 
 ISmearStrategy *GetSmearStrategy(int pdg_particle) {
@@ -234,8 +266,8 @@ void initializeGaussianSmearStrategy() {
   auto mom_file = DATA_PATH "/11/momentum";
   auto ang_spline = build_spline_from_file(ang_file);
   auto mom_spline = build_spline_from_file(mom_file);
-  double scale_ang = 1.2;
-  double scale_mom = 0.9;
+  double scale_ang = 1.8;
+  double scale_mom = 0.8;
   smear_strategies[11] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[-11] = std::make_unique<SplineBasedSmear>(
@@ -244,6 +276,8 @@ void initializeGaussianSmearStrategy() {
       ang_spline, mom_spline, scale_ang, scale_mom);
   smear_strategies[-13] = std::make_unique<SplineBasedSmear>(
       ang_spline, mom_spline, scale_ang, scale_mom);
+  // smear_strategies[22] =
+  //     std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.78, 1.25);
   smear_strategies[22] =
-      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.0, 1.);
+      std::make_unique<SplineBasedSmear>(ang_spline, mom_spline, 0.9, 1.3);
 }

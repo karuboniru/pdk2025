@@ -210,38 +210,39 @@ int main(int argc, char **argv) {
               },
               {"nmichel_electrons"},
               std::format("{} michel electrons", is_mupi ? "one" : "no"))
-          .Define("rec_raw",
+          .Define("rec",
                   [](const NeutrinoEvent &event) {
                     auto rec = event.Rec_lpi_event(is_mupi);
                     return rec;
                   },
                   {"EventRecord"})
-          .Define("rec_KF",
-                  [](RecResult rec) -> std::optional<RecResult> {
-                    // if (rec.subleading_gamma.has_value()) {
-                    //   auto kf_result =
-                    //       kf_pi0({rec.leading_gamma.m_pair.second,
-                    //               rec.subleading_gamma->m_pair.second});
-                    //   if (kf_result.has_value()) {
-                    //     auto new_pi0 =
-                    //         kf_result.value()[0] + kf_result.value()[1];
-                    //     rec.rec_pi0->second = new_pi0;
-                    //     rec.leading_gamma.m_pair.second = kf_result.value()[0];
-                    //     rec.subleading_gamma->m_pair.second =
-                    //         kf_result.value()[1];
-                    //     return rec;
-                    //   }
-                    //   // std::println("KF failed");
-                    // }
-                    return std::nullopt;
-                  },
-                  {"rec_raw"})
-          .Define("rec",
-                  [](const std::optional<RecResult> &rec_opt,
-                     const RecResult &rec_raw) {
-                    return rec_opt.value_or(rec_raw);
-                  },
-                  {"rec_KF", "rec_raw"})
+          // .Define("rec_KF",
+          //         [](RecResult rec) -> std::optional<RecResult> {
+          // if (rec.subleading_gamma.has_value()) {
+          //   auto kf_result =
+          //       kf_pi0({rec.leading_gamma.m_pair.second,
+          //               rec.subleading_gamma->m_pair.second});
+          //   if (kf_result.has_value()) {
+          //     auto new_pi0 =
+          //         kf_result.value()[0] + kf_result.value()[1];
+          //     rec.rec_pi0->second = new_pi0;
+          //     rec.leading_gamma.m_pair.second =
+          //     kf_result.value()[0];
+          //     rec.subleading_gamma->m_pair.second =
+          //         kf_result.value()[1];
+          //     return rec;
+          //   }
+          //   // std::println("KF failed");
+          // }
+          // return std::nullopt;
+          // },
+          // {"rec_raw"})
+          // .Define("rec",
+          //         [](const std::optional<RecResult> &rec_opt,
+          //            const RecResult &rec_raw) {
+          //           return rec_opt.value_or(rec_raw);
+          //         },
+          //         {"rec_KF", "rec_raw"})
           .Define("electron",
                   [](const RecResult &rec) { return rec.lepton.m_pair; },
                   {"rec"})
@@ -263,60 +264,61 @@ int main(int argc, char **argv) {
                     return rec.lepton.m_pair +
                            rec.rec_pi0.value_or(pair_momentum_t{});
                   },
-                  {"rec"})
-          .Define("epi_system_nokf",
-                  [](const RecResult &rec) {
-                    return rec.lepton.m_pair +
-                           rec.rec_pi0.value_or(pair_momentum_t{});
-                  },
-                  {"rec_raw"})
-          .Define("epi_system_idealpi0",
-                  [](const RecResult &rec) {
-                    return rec.lepton.m_pair +
-                           std::make_pair(rec.rec_pi0->first,
-                                          rec.rec_pi0->first);
-                  },
-                  {"rec_raw"});
+                  {"rec"});
+  //         .Define("epi_system_nokf",
+  //                 [](const RecResult &rec) {
+  //                   return rec.lepton.m_pair +
+  //                          rec.rec_pi0.value_or(pair_momentum_t{});
+  //                 },
+  //                 {"rec_raw"})
+  //         .Define("epi_system_idealpi0",
+  //                 [](const RecResult &rec) {
+  //                   return rec.lepton.m_pair +
+  //                          std::make_pair(rec.rec_pi0->first,
+  //                                         rec.rec_pi0->first);
+  //                 },
+  //                 {"rec_raw"});
 
-  auto angle_before_fit =
-      df_epi_final_state
-          .Filter([](const size_t nrings) { return nrings == 3; }, {"nrings"},
-                  "3 rings in detector (pre. cond. for KF)")
-          .Define("angle_2gamma_true",
-                  [&](const RecResult &rec) {
-                    if (rec.subleading_gamma.has_value()) {
-                      return angle_2gamma(rec.leading_gamma.m_pair.first,
-                                          rec.subleading_gamma->m_pair.first);
-                    }
-                    return -1.0;
-                  },
-                  {"rec_raw"})
-          .Define("angle_2gamma_smeared",
-                  [&](const RecResult &rec) {
-                    if (rec.subleading_gamma.has_value()) {
-                      return angle_2gamma(rec.leading_gamma.m_pair.second,
-                                          rec.subleading_gamma->m_pair.second);
-                    }
-                    return -1.0;
-                  },
-                  {"rec_raw"});
+  // auto angle_before_fit =
+  //     df_epi_final_state
+  //         .Filter([](const size_t nrings) { return nrings == 3; },
+  //         {"nrings"},
+  //                 "3 rings in detector (pre. cond. for KF)")
+  //         .Define("angle_2gamma_true",
+  //                 [&](const RecResult &rec) {
+  //                   if (rec.subleading_gamma.has_value()) {
+  //                     return angle_2gamma(rec.leading_gamma.m_pair.first,
+  //                                         rec.subleading_gamma->m_pair.first);
+  //                   }
+  //                   return -1.0;
+  //                 },
+  //                 {"rec_raw"})
+  //         .Define("angle_2gamma_smeared",
+  //                 [&](const RecResult &rec) {
+  //                   if (rec.subleading_gamma.has_value()) {
+  //                     return angle_2gamma(rec.leading_gamma.m_pair.second,
+  //                                         rec.subleading_gamma->m_pair.second);
+  //                   }
+  //                   return -1.0;
+  //                 },
+  //                 {"rec_raw"});
 
-  auto angle_after_fit =
-      angle_before_fit
-          .Filter(
-              [](const std::optional<RecResult> &rec_opt) {
-                return rec_opt.has_value();
-              },
-              {"rec_KF"}, "KF succeeded")
-          .Define("angle_2gamma_smeared_KF",
-                  [&](const std::optional<RecResult> &rec_opt) {
-                    const auto &rec = rec_opt.value();
-                    return angle_2gamma(rec.leading_gamma.m_pair.second,
-                                        rec.subleading_gamma->m_pair.second);
-                  },
-                  {"rec_KF"});
+  // auto angle_after_fit =
+  //     angle_before_fit
+  //         .Filter(
+  //             [](const std::optional<RecResult> &rec_opt) {
+  //               return rec_opt.has_value();
+  //             },
+  //             {"rec_KF"}, "KF succeeded")
+  //         .Define("angle_2gamma_smeared_KF",
+  //                 [&](const std::optional<RecResult> &rec_opt) {
+  //                   const auto &rec = rec_opt.value();
+  //                   return angle_2gamma(rec.leading_gamma.m_pair.second,
+  //                                       rec.subleading_gamma->m_pair.second);
+  //                 },
+  //                 {"rec_KF"});
 
-  auto kf_rate = angle_after_fit.Report();
+  // auto kf_rate = angle_after_fit.Report();
 
   ROOT::RDF::TH1DModel angle_model{"angle_2gamma", "angle between 2 gammas",
                                    180, 0.0, 180.};
@@ -353,12 +355,13 @@ int main(int argc, char **argv) {
   histograms.emplace_back(
       make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
 
-  histograms.emplace_back(
-      make_plot(angle_before_fit, angle_model, "angle_2gamma_true", ""));
-  histograms.emplace_back(
-      make_plot(angle_before_fit, angle_model, "angle_2gamma_smeared", ""));
-  histograms.emplace_back(
-      make_plot(angle_after_fit, angle_model, "angle_2gamma_smeared_KF", ""));
+  // histograms.emplace_back(
+  //     make_plot(angle_before_fit, angle_model, "angle_2gamma_true", ""));
+  // histograms.emplace_back(
+  //     make_plot(angle_before_fit, angle_model, "angle_2gamma_smeared", ""));
+  // histograms.emplace_back(
+  //     make_plot(angle_after_fit, angle_model, "angle_2gamma_smeared_KF",
+  //     ""));
 
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
@@ -386,6 +389,35 @@ int main(int argc, char **argv) {
     histograms.emplace_back(
         make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
   }
+
+  auto df_epi_with_vars_3ring =
+      df_epi_with_vars.Filter([](const size_t nrings) { return nrings == 3; },
+                              {"nrings"}, "3 rings in detector");
+
+  auto smared_pi0_system_m_stddev =
+      df_epi_with_vars_3ring.StdDev("smared_pi0_system_m");
+  auto smeared_pi0_system_m_mean =
+      df_epi_with_vars_3ring.Mean("smared_pi0_system_m");
+  auto smeared_epi_system_m_stddev =
+      df_epi_with_vars_3ring.StdDev("smared_epi_system_m");
+  auto smeared_epi_system_m_mean =
+  df_epi_with_vars_3ring.Mean("smared_epi_system_m");
+
+  // count of epi_p < 0.125
+  auto low_epi_p_count =
+      df_epi_with_vars
+          .Filter([](const double epi_p) { return epi_p < 0.125; },
+                  {"smared_epi_system_p"}, "epi_p < 0.125")
+          .Count();
+  // count of epi_p >= 0.125 && epi_p < 0.250
+  auto high_epi_p_count =
+      df_epi_with_vars
+          .Filter(
+              [](const double epi_p) {
+                return epi_p >= 0.125 && epi_p < 0.250;
+              },
+              {"smared_epi_system_p"}, "0.125 <= epi_p < 0.250")
+          .Count();
 
   signals[0].Snapshot("outtree", output_path + ".tree.root", to_snapshot);
 
@@ -432,5 +464,15 @@ int main(int argc, char **argv) {
   cut_efficiency_upper->Print();
 
   std::println("KF success rate report:");
-  kf_rate->Print();
+  // kf_rate->Print();
+
+  std::println("Smeared pi0 system mass: mean = {}, stddev = {}",
+               smeared_pi0_system_m_mean.GetValue(),
+               smared_pi0_system_m_stddev.GetValue());
+  std::println("Smeared epi system mass: mean = {}, stddev = {}",
+               smeared_epi_system_m_mean.GetValue(),
+               smeared_epi_system_m_stddev.GetValue());
+  std::println("high to low epi_p count ratio: {}",
+               static_cast<double>(high_epi_p_count.GetValue()) /
+                   low_epi_p_count.GetValue());
 }

@@ -18,6 +18,7 @@
 
 #include "alm.hxx"
 #include "doublemin.hxx"
+// #include "timer.h"
 
 class Problem3D {
 public:
@@ -43,15 +44,19 @@ public:
     return constrains;
   }
 
+  static constexpr double sigma_e_1 = 0.01734; // sigma of (smeared - true)
+  static constexpr double sigma_e_2 =
+      0.07625; // sigma of (smeared - true) / true
+  static constexpr double sigma_oa =
+      0.09274; // sigma of (smeared - true) in rad
+
   [[nodiscard]] double
   get_parameter_penalty(const para_view_t &params_kin) const {
     if (params_kin.size() != kinematic_parameter_count) {
       throw std::runtime_error(
           "Problem3D::get_parameter_penalty: invalid parameter size");
     }
-    constexpr double sigma_e_1 = 0.01734; // sigma of (smeared - true)
-    constexpr double sigma_e_2 = 0.07625; // sigma of (smeared - true) / true
-    constexpr double sigma_oa = 0.09274;  // sigma of (smeared - true) in rad
+
     double penalty = 0.0;
     penalty += chi2(params_kin[0], measured.E1, sigma_e_1);
     penalty += chi2(params_kin[1] / measured.E2, 1., sigma_e_2);
@@ -62,11 +67,11 @@ public:
   [[nodiscard]] auto
   generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) const {
     auto &rand = get_thread_local_random();
-    from.Add("E1", rand.Gaus(measured.E1, 0.01), 0.01734);
-    from.Add("E2", rand.Gaus(measured.E2, 0.04961 * measured.E2),
+    from.Add("E1", rand.Gaus(measured.E1, 0.01), sigma_e_1);
+    from.Add("E2", rand.Gaus(measured.E2, sigma_e_2 * measured.E2),
              0.04961 * measured.E2);
     // from.Add("E2", measured.E2);
-    from.Add("OA", measured.theta_oa);
+    from.Add("OA", measured.theta_oa, 0.09274);
     return from;
   }
 
@@ -91,15 +96,16 @@ gamma_dof from_2_gamma(const std::array<momentum_t, 2> &gammas) {
 
 using KFPi0Solver3D = SingleKFLagMul<Problem3D>;
 std::optional<std::tuple<gamma_dof, double>>
-kf_pi0_3D_1(const std::array<momentum_t, 2> &gammas) {
-  return std::nullopt;
+kf_pi0_3D_ALM(const std::array<momentum_t, 2> &gammas) {
+  // return std::nullopt;
+  // ScopedTimer timer("KF Pi0 3D");
   return KFPi0Solver3D::do_kinematics_fit(from_2_gamma(gammas));
 }
 
 using KFPi0Solver3DDM = SingleKFLagMulDoubleMin<Problem3D>;
 std::optional<std::tuple<gamma_dof, double>>
-kf_pi0_3D(const std::array<momentum_t, 2> &gammas) {
+kf_pi0_3D_DM(const std::array<momentum_t, 2> &gammas) {
   // ScopedTimer timer("KF Pi0 3D DM");
   return std::nullopt;
-  return KFPi0Solver3DDM::do_kinematics_fit(from_2_gamma(gammas));
+  // return KFPi0Solver3DDM::do_kinematics_fit(from_2_gamma(gammas));
 }
