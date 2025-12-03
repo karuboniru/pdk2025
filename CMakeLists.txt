@@ -18,7 +18,7 @@ include_directories(
 add_compile_definitions(DATA_PATH="${CMAKE_SOURCE_DIR}/data")
 add_compile_definitions(EVTGEN_DATA_DIR="${EVTGEN_DATA_DIR}")
 
-set(EVTGEN_THREAD_MODE ON)
+option(EVTGEN_THREAD_MODE "Enable EvtGen multi-thread mode" ON)
 if(EVTGEN_THREAD_MODE)
   add_compile_definitions(EVTGEN_THREAD_MODE)
 endif()
