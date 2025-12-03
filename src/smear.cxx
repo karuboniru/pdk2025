@@ -72,7 +72,7 @@ private:
     double step = (max - min) / (num_points - 1);
     for (size_t i = 0; i < num_points; ++i) {
       x_range[i] = x_vals.front() + (i * step);
-      cdf_values[i] = angle_smear_func.Integral(min, x_range[i]);
+      cdf_values[i] = angle_smear_func.Integral(min, x_range[i], 0.01);
     }
     // normalize CDF values
     double total_integral = cdf_values[num_points - 1];
