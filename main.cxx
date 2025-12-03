@@ -29,6 +29,7 @@
 #include "event.h"
 #include "kf.h"
 #include "smear.h"
+#include "common_tools.hxx"
 
 ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
                                       const std::string &varname,
@@ -83,7 +84,7 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
-  ROOT::EnableImplicitMT();
+  ROOT::EnableImplicitMT(guess_nproc_from_env());
   // trigger initialization of everything
   EvtGenInterface::get_instance();
   TDatabasePDG::Instance();
