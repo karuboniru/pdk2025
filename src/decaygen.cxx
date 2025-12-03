@@ -15,10 +15,10 @@ public:
   double random() override {
     return get_thread_local_random().Uniform(0.0, 1.0);
   }
-  void setSeed(unsigned long int seed) override {
+  void setSeed(unsigned long int seed) {
     get_thread_local_random().SetSeed(seed);
   }
-  unsigned long int lastSeed() const override {
+  unsigned long int lastSeed() const {
     return get_thread_local_random().GetSeed();
   }
 };
