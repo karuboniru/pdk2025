@@ -32,3 +32,8 @@ struct gamma_dof{
   double E1, E2;
   double theta_oa;
 };
+
+struct proton_dof{
+  double E1, E2, Elepton;
+  double theta_2gamma, theta_lepton_pi0;
+};

@@ -20,18 +20,6 @@
 
 #include "alm.hxx"
 
-double rayleigh_log_likelihood(double value, double sigma) {
-  if (value < 0 || sigma <= 0) {
-    return -std::numeric_limits<double>::infinity();
-  }
-  return std::log(value) - ((value * value) / (2 * sigma * sigma));
-}
-
-double rayleigh_log_likelihood_normalized(double value, double sigma) {
-  return -2. * (rayleigh_log_likelihood(value, sigma) -
-                rayleigh_log_likelihood(sigma, sigma));
-}
-
 ROOT::Math::PxPyPzEVector
 change_vector(const ROOT::Math::PxPyPzEVector &original, double dx, double dy,
               double dz) {
@@ -86,7 +74,7 @@ public:
       ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
       ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
       double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      penalty += chi2(angle_diff, 0.0, s_ang);
+      penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
       // penalty += rayleigh_log_likelihood_normalized(angle_diff, s_ang);
 
       // momentum penalty
@@ -132,4 +120,19 @@ using KFPi0Solver = SingleKFLagMul<Problem6D, 0.5, 0.0, 2.0>;
 std::optional<std::tuple<std::array<momentum_t, 2>, double>>
 kf_pi0(const std::array<momentum_t, 2> &gammas) {
   return KFPi0Solver::do_kinematics_fit(gammas);
+}
+
+using KFPi0Solver = SingleKFLagMul<Problem6D, 0.5, 0.0, 2.0>;
+std::optional<std::tuple<std::array<momentum_t, 3>, double>>
+kf_pi0(const std::array<momentum_t, 3> &lepton_gammas) {
+  auto gammas = std::array<momentum_t, 2>{lepton_gammas[1], lepton_gammas[2]};
+  auto result = KFPi0Solver::do_kinematics_fit(gammas);
+  if (!result) {
+    return std::nullopt;
+  }
+  auto [fitted_gammas, chi2] = *result;
+  return std::make_tuple(std::array<momentum_t, 3>{lepton_gammas[0],
+                                                   fitted_gammas[0],
+                                                   fitted_gammas[1]},
+                         chi2);
 }

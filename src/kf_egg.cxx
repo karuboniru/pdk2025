@@ -1,3 +1,4 @@
+#include "common_tools.hxx"
 #include "kf.h"
 #include "local_rand.h"
 #include "smear.h"
@@ -79,7 +80,7 @@ public:
       ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
       ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
       double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      penalty += chi2(angle_diff, 0.0, s_ang);
+      penalty += chi2(angle_diff, 0., s_ang);
 
       // momentum penalty
       double orig_mom = orig.P();

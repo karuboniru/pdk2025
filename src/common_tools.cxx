@@ -64,3 +64,24 @@ size_t guess_nproc_from_env() {
   // 0 means let ROOT decide
   return 0;
 }
+
+double rayleigh_log_likelihood(double value, double sigma) {
+  if (value < 0 || sigma <= 0) {
+    return -std::numeric_limits<double>::infinity();
+  }
+  return std::log(value) - ((value * value) / (2 * sigma * sigma));
+}
+
+double rayleigh_log_likelihood_normalized(double value, double sigma) {
+  return -2. * (rayleigh_log_likelihood(value, sigma) -
+                rayleigh_log_likelihood(sigma, sigma));
+}
+
+double angle_between(const momentum_t &p4_1, const momentum_t &p4_2) {
+  auto dot_product = p4_1.Vect().Dot(p4_2.Vect());
+  auto magnitude_product = p4_1.P() * p4_2.P();
+  auto cos_angle = dot_product / magnitude_product;
+  // Clamp the value to the valid range for acos
+  cos_angle = std::clamp(cos_angle, -1.0, 1.0);
+  return std::acos(cos_angle);
+}

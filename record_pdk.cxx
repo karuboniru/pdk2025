@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
                     for (int i = 0; i < 2; ++i) {
                       auto fit_result =
                           kf_pi0_full({smeared_opt.lepton, smeared_opt.gamma1,
-                                       smeared_opt.gamma2});
+                                  smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
