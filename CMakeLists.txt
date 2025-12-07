@@ -151,3 +151,15 @@ target_link_libraries(plot_from_record_common
   ROOT::ROOTDataFrame
   event
 )
+
+
+
+add_executable(dump dump.cxx)
+
+# Link libraries
+target_link_libraries(dump
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)

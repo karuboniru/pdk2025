@@ -51,23 +51,36 @@ public:
     return InverseCDFSpline.Eval(cdf);
   }
 
+  double get_max_normalized_value(double angle_to_sigma) const {
+    // angle_to_sigma *= 2.91;
+    angle_to_sigma = std::min(angle_to_sigma, x_max);
+    auto pdf = resolution_spline.Eval(angle_to_sigma);
+    auto res = pdf / y_max;
+    res = std::clamp(res, y_min / y_max, 1.0);
+    return res;
+  }
+
 private:
   smear_angle_generation(std::string filepath) {
     constexpr size_t num_points = 500;
     std::vector<double> x_vals, y_vals;
-    for (const auto &[x, y] : parse_response_file(filepath)) {
+    for (const auto &[x_, y] : parse_response_file(filepath)) {
+      auto x = x_ / 2.91; // sigma scaling
       x_vals.push_back(x);
       y_vals.push_back(y);
+      y_max = std::max(y_max, y);
+      x_max = std::max(x_max, x);
+      y_min = std::min(y_min, y);
     }
     // create a spline from the data
     auto min = x_vals.front();
     auto max = x_vals.back();
-    TSpline3 spline("response_spline", x_vals.data(), y_vals.data(),
-                    x_vals.size());
+    resolution_spline = TSpline3{"response_spline", x_vals.data(),
+                                 y_vals.data(), (int)x_vals.size()};
     TF1 angle_smear_func(
         "angle_smear_func",
-        [&spline](double *x, double *p) { return spline.Eval(x[0]); }, min, max,
-        0);
+        [&](double *x, double *p) { return resolution_spline.Eval(x[0]); }, min,
+        max, 0);
     std::array<double, num_points> x_range{}, cdf_values{};
     double step = (max - min) / (num_points - 1);
     for (size_t i = 0; i < num_points; ++i) {
@@ -83,7 +96,16 @@ private:
                                 x_range.data(), num_points);
   }
   TSpline3 InverseCDFSpline;
+  TSpline3 resolution_spline;
+  double y_max = 0.0;
+  double x_max = 0.0;
+  double y_min = std::numeric_limits<double>::max();
 };
+
+double get_llh_angular(double oa, double sigma) {
+  return -2. * std::log(smear_angle_generation::get_instance()
+                            .get_max_normalized_value(oa / sigma));
+}
 
 TSpline3 build_spline_from_file(std::string filepath) {
   std::vector<double> x_vals, y_vals;
@@ -173,10 +195,10 @@ public:
   ROOT::Math::PxPyPzEVector do_smearing(ROOT::Math::PxPyPzEVector vec) const {
     // double cdf = get_thread_local_random().Uniform(0, 1);
     // double angle = m_sigma * std::sqrt(-2.0 * std::log(cdf));
-    auto angle = smear_angle_generation::get_instance().get_smeared_angle() /
-                 2.91 * m_sigma;
+    auto angle =
+        smear_angle_generation::get_instance().get_smeared_angle() * m_sigma;
     // cap angle at 25
-    angle = std::min(angle, 25.0);
+    // angle = std::min(angle, 25.0);
     return smear_angle(vec, angle);
   }
 
