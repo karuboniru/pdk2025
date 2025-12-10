@@ -38,16 +38,16 @@ double cos_theta_between_vectors(const ROOT::Math::PxPyPzEVector &v1,
   return cos_theta;
 }
 
-ROOT::RDataFrame get_initial_frame(bool genie_mode,
+ROOT::RDF::RNode get_initial_frame(bool genie_mode,
                                    const std::vector<std::string> &filenames) {
   if (genie_mode) {
-    return ROOT::RDataFrame{"gRooTracker", filenames};
+    return TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", filenames});
   }
   try {
-    return ROOT::RDataFrame{"outtree", filenames};
+    return TrackerPrepare(ROOT::RDataFrame{"outtree", filenames});
   } catch (...) {
     // some historical reasons...
-    return ROOT::RDataFrame{"out_tree", filenames};
+    return TrackerPrepare(ROOT::RDataFrame{"out_tree", filenames});
   }
 }
 
@@ -58,8 +58,7 @@ int main(int argc, char **argv) {
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
-  ROOT::RDF::RNode tracker_df =
-      get_initial_frame(genie_mode, input_files);
+  auto tracker_df = get_initial_frame(genie_mode, input_files);
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   try {
     tracker_df = tracker_df.Define("weight", []() { return 1.0; }, {});
