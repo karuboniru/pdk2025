@@ -171,3 +171,13 @@ target_link_libraries(construct_th3d
   ROOT::ROOTDataFrame
   event
 )
+
+
+add_executable(slice_event slice_event.cxx)
+
+target_link_libraries(slice_event
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
