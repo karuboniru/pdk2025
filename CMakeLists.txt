@@ -153,11 +153,19 @@ target_link_libraries(plot_from_record_common
 )
 
 
-
 add_executable(dump dump.cxx)
 
 # Link libraries
 target_link_libraries(dump
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
+
+add_executable(construct_th3d construct_th3d.cxx)
+
+target_link_libraries(construct_th3d
   ROOT::Physics
   ROOT::EG
   ROOT::ROOTDataFrame
