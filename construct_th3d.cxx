@@ -47,7 +47,7 @@ ROOT::RDF::RNode get_initial_frame(bool genie_mode,
     return TrackerPrepare(ROOT::RDataFrame{"outtree", filenames});
   } catch (...) {
     // some historical reasons...
-    return TrackerPrepare(ROOT::RDataFrame{"out_tree", filenames});
+    return TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", filenames});
   }
 }
 
