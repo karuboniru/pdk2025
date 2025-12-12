@@ -1,6 +1,7 @@
 #include <ROOT/RDF/InterfaceUtils.hxx>
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
+#include <ROOT/RResultPtr.hxx>
 #include <ROOT/RVec.hxx>
 #include <TDatabasePDG.h>
 #include <TMemFile.h>
@@ -49,6 +50,16 @@ ROOT::RDF::RNode get_initial_frame(bool genie_mode,
     // some historical reasons...
     return TrackerPrepareNeutrino(ROOT::RDataFrame{"out_tree", filenames});
   }
+}
+
+auto construct_hist(auto df, const std::string &name) {
+  return df.Histo3D({name.c_str(),
+                     "Lepton Energy vs Pi0 Energy vs Cosine of Angle between "
+                     "Lepton and "
+                     "Pi0;E_{lepton} [GeV];E_{#pi^{0}} "
+                     "[GeV];cos(#theta_{lepton, #pi^{0}})",
+                     50, 0., 1.0, 50, 0., 1.0, 50, -1., 1.},
+                    "E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight");
 }
 
 int main(int argc, char **argv) {
@@ -155,15 +166,23 @@ int main(int argc, char **argv) {
               },
               {"electron", "pi0_system"});
 
-  auto hist3D =
-      df_all.Histo3D({"E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0",
-                      "Lepton Energy vs Pi0 Energy vs Cosine of Angle between "
-                      "Lepton and "
-                      "Pi0;E_{lepton} [GeV];E_{#pi^{0}} "
-                      "[GeV];cos(#theta_{lepton, #pi^{0}})",
-                      50, 0., 1.5, 50, 0., 1.5, 50, -1., 1.},
-                     "E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight");
-
-  hist3D->SaveAs(output_path.c_str());
+  std::vector<ROOT::RDF::RResultPtr<TH3D>> hist_list;
+  hist_list.emplace_back(
+      construct_hist(df_all, "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0"));
+  hist_list.emplace_back(construct_hist(
+      df_all.Filter(
+          [](const NeutrinoEvent &event) { return event.is_transparent(); },
+          {"EventRecord"}),
+      "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0_transparent"));
+  hist_list.emplace_back(construct_hist(
+      df_all.Filter(
+          [](const NeutrinoEvent &event) { return !event.is_transparent(); },
+          {"EventRecord"}),
+      "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0_non_transparent"));
+  TFile output_file(output_path.c_str(), "RECREATE");
+  for (auto &hist : hist_list) {
+    hist->Write();
+  }
+  output_file.Close();
   return 0;
 }
