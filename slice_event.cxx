@@ -53,7 +53,7 @@ ROOT::RDF::RNode get_initial_frame(bool genie_mode,
 
 int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
-
+  // ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
@@ -152,14 +152,19 @@ int main(int argc, char **argv) {
                                                  pi0_system.second);
               },
               {"electron", "pi0_system"})
+          .Define(
+              "is_transparent",
+              [](const NeutrinoEvent &event) { return event.is_transparent(); },
+              {"EventRecord"})
           .Filter([](double e_lepton,
                      double e_pi0) { return e_lepton < 1.0 && e_pi0 < 1.0; },
                   {"E_lepton", "E_pi0"}, "Both lepton and pi0 energy < 1.5 GeV")
-          .Range(0, 80'000);
+          .Range(0, 4'000'000);
   ROOT::RDF::Experimental::AddProgressBar(df_sliced);
 
   df_sliced.Snapshot("sample_event", output_path,
-                     {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight"});
+                     {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight",
+                      "raw_proton_momentum", "is_transparent"});
 
   return 0;
 }
