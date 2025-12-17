@@ -207,6 +207,24 @@ int main(int argc, char **argv) {
               },
               {"EventRecord"}),
       "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0_tail_region_non_transparent"));
+  hist_list.emplace_back(construct_hist(
+      df_all
+          .Filter([](double proton_p) { return proton_p > 0.25; },
+                  {"raw_proton_momentum"})
+          .Filter(
+              [](const NeutrinoEvent &event) { return event.is_transparent(); },
+              {"EventRecord"}),
+      "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0_tail_region_transparent"));
+  hist_list.emplace_back(construct_hist(
+      df_all
+          .Filter([](double proton_p) { return proton_p < 0.25; },
+                  {"raw_proton_momentum"})
+          .Filter(
+              [](const NeutrinoEvent &event) {
+                return !event.is_transparent();
+              },
+              {"EventRecord"}),
+      "E_lepton_vs_E_pi0_vs_cos_theta_lepton_pi0_peak_region_non_transparent"));
 
   TFile output_file(output_path.c_str(), "RECREATE");
   for (auto &hist : hist_list) {
