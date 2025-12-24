@@ -69,12 +69,18 @@ int main(int argc, char **argv) {
           .Define("raw_proton_momentum",
                   [](const NeutrinoEvent &event) {
                     auto proton = event.in_range(2212);
+                    if (proton.size() == 0) {
+                      return 0.0;
+                    }
                     return proton.begin()->second.P();
                   },
                   {"EventRecord"})
           .Define("raw_mass_proton",
                   [](const NeutrinoEvent &event) {
                     auto proton = event.in_range(2212);
+                    if (proton.size() == 0) {
+                      return 0.0;
+                    }
                     return proton.begin()->second.M();
                   },
                   {"EventRecord"})
@@ -94,6 +100,9 @@ int main(int argc, char **argv) {
           .Define("raw_pi0_before_fsi",
                   [](const NeutrinoEvent &event) {
                     auto pi0 = event.out_range(111);
+                    if (pi0.size() == 0) {
+                      return 0.0;
+                    }
                     return pi0.begin()->second.P();
                   },
                   {"EventRecord"})
