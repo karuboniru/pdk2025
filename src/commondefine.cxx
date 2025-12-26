@@ -1,6 +1,12 @@
 #include "commondefine.h"
 #include "data.h"
 #include "event.h"
+#include "local_rand.h"
+
+bool accept_by_probability(double prob) {
+  auto &rand_gen = get_thread_local_random();
+  return rand_gen.Uniform(0.0, 1.0) < prob;
+}
 
 auto iter_pair(auto &iter_range) {
   auto en = iter_range | std::views::enumerate;
@@ -121,7 +127,9 @@ std::array<ROOT::RDF::RNode, 3> FilterSignalKinematics(ROOT::RDF::RNode df) {
               "reconstructed proton mass cut (800-1050 MeV)")
           .Filter([](double rec_p_p) { return rec_p_p < 0.25; },
                   {"smared_epi_system_p"},
-                  "reconstructed proton momentum cut (< 250 MeV)");
+                  "reconstructed proton momentum cut (< 250 MeV)")
+          .Filter(accept_by_probability, {"p_no_neutron_tag"},
+                  "no neutron tagging");
   auto signal_upper = signal.Filter(
       [](double rec_p_p) { return rec_p_p >= 0.1; }, {"smared_epi_system_p"},
       "reconstructed proton momentum upper region (>= 100 MeV)");
@@ -155,7 +163,9 @@ std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
               "reconstructed proton mass cut (800-1050 MeV)")
           .FilterTracked([](double rec_p_p) { return rec_p_p < 0.25; },
                          {"smared_epi_system_p"},
-                         "reconstructed proton momentum cut (< 250 MeV)");
+                         "reconstructed proton momentum cut (< 250 MeV)")
+          .FilterTracked(accept_by_probability, {"p_no_neutron_tag"},
+                         "no neutron tagging");
   auto signal_upper = signal.FilterTracked(
       [](double rec_p_p) { return rec_p_p >= 0.1; }, {"smared_epi_system_p"},
       "reconstructed proton momentum upper region (>= 100 MeV)");

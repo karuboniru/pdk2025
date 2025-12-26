@@ -24,12 +24,12 @@
 
 #include "EvtTracker2event.h"
 #include "cmdline.h"
+#include "common_tools.hxx"
 #include "commondefine.h"
 #include "decaygen.h"
 #include "event.h"
 #include "kf.h"
 #include "smear.h"
-#include "common_tools.hxx"
 
 ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
                                       const std::string &varname,
@@ -266,60 +266,6 @@ int main(int argc, char **argv) {
                            rec.rec_pi0.value_or(pair_momentum_t{});
                   },
                   {"rec"});
-  //         .Define("epi_system_nokf",
-  //                 [](const RecResult &rec) {
-  //                   return rec.lepton.m_pair +
-  //                          rec.rec_pi0.value_or(pair_momentum_t{});
-  //                 },
-  //                 {"rec_raw"})
-  //         .Define("epi_system_idealpi0",
-  //                 [](const RecResult &rec) {
-  //                   return rec.lepton.m_pair +
-  //                          std::make_pair(rec.rec_pi0->first,
-  //                                         rec.rec_pi0->first);
-  //                 },
-  //                 {"rec_raw"});
-
-  // auto angle_before_fit =
-  //     df_epi_final_state
-  //         .Filter([](const size_t nrings) { return nrings == 3; },
-  //         {"nrings"},
-  //                 "3 rings in detector (pre. cond. for KF)")
-  //         .Define("angle_2gamma_true",
-  //                 [&](const RecResult &rec) {
-  //                   if (rec.subleading_gamma.has_value()) {
-  //                     return angle_2gamma(rec.leading_gamma.m_pair.first,
-  //                                         rec.subleading_gamma->m_pair.first);
-  //                   }
-  //                   return -1.0;
-  //                 },
-  //                 {"rec_raw"})
-  //         .Define("angle_2gamma_smeared",
-  //                 [&](const RecResult &rec) {
-  //                   if (rec.subleading_gamma.has_value()) {
-  //                     return angle_2gamma(rec.leading_gamma.m_pair.second,
-  //                                         rec.subleading_gamma->m_pair.second);
-  //                   }
-  //                   return -1.0;
-  //                 },
-  //                 {"rec_raw"});
-
-  // auto angle_after_fit =
-  //     angle_before_fit
-  //         .Filter(
-  //             [](const std::optional<RecResult> &rec_opt) {
-  //               return rec_opt.has_value();
-  //             },
-  //             {"rec_KF"}, "KF succeeded")
-  //         .Define("angle_2gamma_smeared_KF",
-  //                 [&](const std::optional<RecResult> &rec_opt) {
-  //                   const auto &rec = rec_opt.value();
-  //                   return angle_2gamma(rec.leading_gamma.m_pair.second,
-  //                                       rec.subleading_gamma->m_pair.second);
-  //                 },
-  //                 {"rec_KF"});
-
-  // auto kf_rate = angle_after_fit.Report();
 
   ROOT::RDF::TH1DModel angle_model{"angle_2gamma", "angle between 2 gammas",
                                    180, 0.0, 180.};
@@ -355,14 +301,6 @@ int main(int argc, char **argv) {
 
   histograms.emplace_back(
       make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
-
-  // histograms.emplace_back(
-  //     make_plot(angle_before_fit, angle_model, "angle_2gamma_true", ""));
-  // histograms.emplace_back(
-  //     make_plot(angle_before_fit, angle_model, "angle_2gamma_smeared", ""));
-  // histograms.emplace_back(
-  //     make_plot(angle_after_fit, angle_model, "angle_2gamma_smeared_KF",
-  //     ""));
 
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
@@ -402,7 +340,7 @@ int main(int argc, char **argv) {
   auto smeared_epi_system_m_stddev =
       df_epi_with_vars_3ring.StdDev("smared_epi_system_m");
   auto smeared_epi_system_m_mean =
-  df_epi_with_vars_3ring.Mean("smared_epi_system_m");
+      df_epi_with_vars_3ring.Mean("smared_epi_system_m");
 
   // count of epi_p < 0.125
   auto low_epi_p_count =

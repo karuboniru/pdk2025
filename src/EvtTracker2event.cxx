@@ -8,6 +8,11 @@
 #include <ranges>
 #include <span>
 
+double p_no_neutron_tag(size_t n_neutron) {
+  constexpr double p_tag_one = 0.7;
+  return std::pow(1 - p_tag_one, n_neutron);
+}
+
 auto general_define(auto &&df) {
   return df
       .Define("nrings",
@@ -24,8 +29,10 @@ auto general_define(auto &&df) {
               [](const NeutrinoEvent &event) {
                 return event.get_n_michel_electrons();
               },
-              {"EventRecord"});
-  ;
+              {"EventRecord"})
+      .Define("n_neutron", [](NeutrinoEvent &e) { return e.count_post(2112); },
+              {"EventRecord"})
+      .Define("p_no_neutron_tag", p_no_neutron_tag, {"n_neutron"});
 }
 
 ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
