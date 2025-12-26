@@ -56,6 +56,7 @@ int main(int argc, char **argv) {
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all =
       tracker_df
+          // .Range(1,100)
           .Define("raw_proton_momentum",
                   [](const NeutrinoEvent &event) {
                     auto proton = event.in_range(2212);
@@ -157,7 +158,7 @@ int main(int argc, char **argv) {
                     for (int i = 0; i < 2; ++i) {
                       auto fit_result =
                           kf_pi0_full({smeared_opt.lepton, smeared_opt.gamma1,
-                                  smeared_opt.gamma2});
+                                       smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -191,6 +192,15 @@ int main(int argc, char **argv) {
                     return -1.0;
                   },
                   {"kf_full_with_chi2"})
+          .Define("truth_chi2",
+                  [](const EventRec &truth, const EventRec &smear) {
+                    if (!smear.is_valid || !smear.has_gamma2) {
+                      return 0.;
+                    }
+                    return get_chi2({smear.lepton, smear.gamma1, smear.gamma2},
+                                    {truth.lepton, truth.gamma1, truth.gamma2});
+                  },
+                  {"truth", "smeared"})
           .Define("kf_3d",
                   [](const EventRec &smeared_opt) -> gamma_dof {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
@@ -216,17 +226,18 @@ int main(int argc, char **argv) {
                         .value_or(gamma_dof{});
                   },
                   {"smeared"})
-          .Define("kf_3d_1",
-                  [](const EventRec &smeared_opt) -> gamma_dof {
+          .Define("kf_5d",
+                  [](const EventRec &smeared_opt) -> proton_dof {
                     if (!smeared_opt.is_valid || !smeared_opt.has_gamma2) {
-                      return gamma_dof{};
+                      return proton_dof{};
                     }
-                    decltype(kf_pi0_3D_ALM(
-                        {smeared_opt.gamma1, smeared_opt.gamma2})) best_fit =
-                        std::nullopt;
+                    decltype(kf_pi0_5D_ALM(
+                        {smeared_opt.lepton, smeared_opt.gamma1,
+                         smeared_opt.gamma2})) best_fit = std::nullopt;
                     for (int i = 0; i < 1; ++i) {
-                      auto fit_result = kf_pi0_3D_ALM(
-                          {smeared_opt.gamma1, smeared_opt.gamma2});
+                      auto fit_result =
+                          kf_pi0_5D_ALM({smeared_opt.lepton, smeared_opt.gamma1,
+                                         smeared_opt.gamma2});
                       if (fit_result.has_value()) {
                         // choose the best fit based on smallest chi2
                         if (!best_fit.has_value() ||
@@ -238,9 +249,9 @@ int main(int argc, char **argv) {
                     }
                     return best_fit
                         .transform([](const auto &t) { return std::get<0>(t); })
-                        .value_or(gamma_dof{});
+                        .value_or(proton_dof{});
                   },
-                  {"smeared"})
+                  {"truth"})
           .Define(
               "kf",
               [](const EventRec &smeared_opt,
@@ -299,7 +310,7 @@ int main(int argc, char **argv) {
                    "nrings", "nshower_rings", "nmichel_electrons", "nrings_cut",
                    "shower_ring_cut", "nmichel_electrons_cut",
                    // dummy weight
-                   "weight", "kf_chi2", "kf_3d", "kf_3d_1"});
+                   "weight", "kf_chi2", "kf_3d", "kf_5d", "truth_chi2"});
 
   std::println("Mean smeared pi0 mass: {} +- {}",
                mean_smeared_pi0_mass.GetValue(),

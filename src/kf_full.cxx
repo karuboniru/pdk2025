@@ -20,19 +20,10 @@
 
 #include "alm.hxx"
 
-ROOT::Math::PxPyPzEVector
-change_vector(const ROOT::Math::PxPyPzEVector &original, double dx, double dy,
-              double dz) {
-  ROOT::Math::XYZVector vec3d{original.x() + dx, original.y() + dy,
-                              original.z() + dz};
-  double energy = vec3d.R();
-  return ROOT::Math::PxPyPzEVector{vec3d.x(), vec3d.y(), vec3d.z(), energy};
-}
-
 class Problem6D {
 public:
   static constexpr size_t kinematic_parameter_count = 6;
-  static constexpr size_t constrain_count = 3;
+  static constexpr size_t constrain_count = 1;
   static constexpr double chi2_cut = 16;
   using answer_t = std::array<momentum_t, 2>;
   Problem6D(answer_t measured_) : measured(std::move(measured_)) {
@@ -54,13 +45,13 @@ public:
     auto pi0_momentum = fitted[0] + fitted[1];
     constrains[0] = pi0_momentum.M() - 0.134977;
     // reconstructed pi0 follows preserved momentum
-    auto orig_pi0_momentum = measured[0] + measured[1];
-    auto reconstructed_unit = pi0_momentum.Vect().Unit();
-    auto original_unit = orig_pi0_momentum.Vect().Unit();
-    constrains[1] =
-        reconstructed_unit.X() - original_unit.X(); // px conservation
-    constrains[2] =
-        reconstructed_unit.Y() - original_unit.Y(); // py conservation
+    // auto orig_pi0_momentum = measured[0] + measured[1];
+    // auto reconstructed_unit = pi0_momentum.Vect().Unit();
+    // auto original_unit = orig_pi0_momentum.Vect().Unit();
+    // constrains[1] =
+    //     reconstructed_unit.X() - original_unit.X(); // px conservation
+    // constrains[2] =
+    //     reconstructed_unit.Y() - original_unit.Y(); // py conservation
 
     return constrains;
   }
@@ -74,9 +65,12 @@ public:
       ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
       ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
       double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
+      // penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
       // penalty += rayleigh_log_likelihood_normalized(angle_diff, s_ang);
-
+      if (angle_diff > s_ang / 1.5)
+        penalty += rayleigh_log_likelihood_normalized(angle_diff, s_ang / 1.5);
+      else
+        penalty += rayleigh_log_likelihood_normalized(s_ang / 1.5, s_ang / 1.5);
       // momentum penalty
       double orig_mom = orig.P();
       double fitted_mom = fit.P();
@@ -85,27 +79,42 @@ public:
     return penalty;
   }
 
-  static auto
-  generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) {
-    auto &local_rand = get_thread_local_random();
-    for (size_t i = 0; i < kinematic_parameter_count; ++i) {
-      from.Add(std::format("dx{}", i), local_rand.Gaus(0, 0.05), 0.001);
+  auto generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) const {
+    // auto &local_rand = get_thread_local_random();
+    auto gamma_smear_strategy = GetSmearStrategy(22);
+    for (auto &&[id, particle_measured] : measured | std::views::enumerate) {
+      auto smeared = gamma_smear_strategy->do_smearing(particle_measured);
+      auto x = smeared.Vect().X();
+      auto dx = x - particle_measured.Vect().X();
+      auto y = smeared.Vect().Y();
+      auto dy = y - particle_measured.Vect().Y();
+      auto z = smeared.Vect().Z();
+      auto dz = z - particle_measured.Vect().Z();
+      from.Add(std::format("x{}", id), x,
+               std::abs(dx) > 1e-6 ? std::abs(dx) : 0.01);
+      from.Add(std::format("y{}", id), y,
+               std::abs(dy) > 1e-6 ? std::abs(dy) : 0.01);
+      from.Add(std::format("z{}", id), z,
+               std::abs(dz) > 1e-6 ? std::abs(dz) : 0.01);
     }
     return from;
   }
 
-  answer_t get_measured_from_parameters(const para_view_t &params_kin) const {
+  static answer_t get_measured_from_parameters(const para_view_t &params_kin) {
     if (params_kin.size() != kinematic_parameter_count) {
       throw std::runtime_error(
           "Problem6D::get_measured_from_parameters: invalid parameter size");
     }
     answer_t ret;
-    for (auto &&[target, source, p3] :
-         std::views::zip(ret, measured, params_kin | std::views::chunk(3))) {
-      double dx = p3[0];
-      double dy = p3[1];
-      double dz = p3[2];
-      target = change_vector(source, dx, dy, dz);
+    for (auto &&[target, p3] :
+         std::views::zip(ret, params_kin | std::views::chunk(3))) {
+      double x = p3[0];
+      double y = p3[1];
+      double z = p3[2];
+      ROOT::Math::XYZVector vec3d{x, y, z};
+      double energy = vec3d.R();
+      target =
+          ROOT::Math::PxPyPzEVector{vec3d.x(), vec3d.y(), vec3d.z(), energy};
     }
     return ret;
   }

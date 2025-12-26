@@ -2,6 +2,7 @@
 #include "Math/Vector4Dfwd.h"
 #include "TROOT.h"
 #include <Math/DisplacementVector3D.h>
+#include <Math/GenVector/Boost.h>
 #include <Math/Vector3D.h>
 #include <Math/Vector4D.h>
 #include <ROOT/RDataFrame.hxx>
@@ -24,6 +25,13 @@ double get_momentum_in_rest_frame(double in_mass, double out1_mass,
     return sqrt(var) / (2 * in_mass);
   return -1;
 }
+
+// ROOT::Math::PxPyPzEVector
+// boost_z(const ROOT::Math::PxPyPzEVector &p4,
+//         const ROOT::Math::Boost
+//             &boost) {
+//   return boost(p4);
+// }
 
 int main(int argc, char **agrv) {
   constexpr double mass_proton = 0.9382720813; // GeV/c^2
@@ -50,6 +58,14 @@ int main(int argc, char **agrv) {
 
   using p3d = ROOT::Math::DisplacementVector3D<ROOT::Math::Cartesian3D<double>>;
   using p4d = ROOT::Math::PxPyPzEVector;
+
+  auto initial_proton = ROOT::Math::PxPyPzEVector{
+      ROOT::Math::PxPyPzMVector{
+          0, 0, 0., mass_proton} // moving proton with 120 MeV/c momentum
+  };
+
+  auto boost_from_proton_rest_to_lab =
+      ROOT::Math::Boost(-initial_proton.BoostToCM());
 
   ROOT::RDataFrame{event_count}
       .Define("rand_dir",
@@ -90,11 +106,11 @@ int main(int argc, char **agrv) {
                   ret[start_index + 3] = p.Pz();
                   start_index += 4;
                 };
-                fill(p_proton);
-                fill(p_pion);
-                fill(p_e);
-                fill(p_pion);
-                fill(p_e);
+                fill(boost_from_proton_rest_to_lab(p_proton));
+                fill(boost_from_proton_rest_to_lab(p_pion));
+                fill(boost_from_proton_rest_to_lab(p_e));
+                fill(boost_from_proton_rest_to_lab(p_pion));
+                fill(boost_from_proton_rest_to_lab(p_e));
                 return ret;
               },
               {"p4_pion", "p4_electron"})
@@ -102,8 +118,6 @@ int main(int argc, char **agrv) {
           "pdg",
           [=]() { return std::array<int, 5>{2212, 111, pdg_lepton, 111, -11}; })
       .Define("status", []() { return std::array<int, 5>{0, 1, 1, 2, 2}; })
-      .Snapshot(
-          "outtree",
-          output_filename,
-          {"nparticles", "P", "pdg", "status"}, options);
+      .Snapshot("outtree", output_filename,
+                {"nparticles", "P", "pdg", "status"}, options);
 }

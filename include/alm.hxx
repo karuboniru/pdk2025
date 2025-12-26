@@ -58,7 +58,7 @@ public:
     constexpr double tol = 1e-5;
     SingleKFLagMul<T> fcn(input);
     auto upar = fcn.generate_initial_parameters();
-    unsigned int default_strategy = 0;
+    unsigned int default_strategy = 1;
     for (size_t iter{};; iter++) {
       ROOT::Minuit2::MnMigrad migrad(
           fcn, upar, ROOT::Minuit2::MnStrategy{default_strategy});
@@ -81,11 +81,11 @@ public:
         }
       } else {
         // bad fit, regenerate initial parameters
-        default_strategy = std::min(2u, default_strategy + 1);
+        default_strategy = std::min(2U, default_strategy + 1);
         fcn.hyper_parameters = {}; // reset hyper parameters
         upar = fcn.generate_initial_parameters();
       }
-      if (iter > 128) {
+      if (iter > 256) {
         return std::nullopt;
       }
     }

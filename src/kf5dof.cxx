@@ -6,6 +6,7 @@
 #include <Math/Vector3D.h>
 #include <Math/Vector3Dfwd.h>
 #include <Math/Vector4D.h>
+#include <Math/Vector4Dfwd.h>
 #include <Minuit2/FCNBase.h>
 #include <Minuit2/FunctionMinimum.h>
 #include <Minuit2/MnMigrad.h>
@@ -14,6 +15,7 @@
 #include <Minuit2/MnStrategy.h>
 #include <Minuit2/MnUserParameters.h>
 #include <cstddef>
+#include <cstdlib>
 #include <optional>
 
 #include "alm.hxx"
@@ -23,8 +25,8 @@
 class Problem5D {
 public:
   static constexpr size_t kinematic_parameter_count = 5;
-  static constexpr size_t constrain_count = 1;
-  static constexpr double chi2_cut = 16;
+  static constexpr size_t constrain_count = 2;
+  static constexpr double chi2_cut = +std::numeric_limits<double>::infinity();
   using answer_t = proton_dof;
   Problem5D(double e1, double e2, double oa) : measured(e1, e2, oa) {}
   Problem5D(const answer_t &measured_) : measured(measured_) {}
@@ -36,11 +38,13 @@ public:
           "Problem5D::get_constrain: invalid parameter size");
     }
     std::array<double, constrain_count> constrains{};
-    double m2 =
-        2 * params_kin[0] * params_kin[1] * (1 - std::cos(params_kin[2]));
-    constexpr double pi0_mass = 134.9768 / 1000.; // GeV/c^2
-    constexpr double pi0_mass2 = pi0_mass * pi0_mass;
-    constrains[0] = m2 - pi0_mass2;
+    double m_proton = 0.9382720813; // GeV/c^2
+    double m_pi0 = 0.134977;        // GeV/c^2
+
+    auto dof = get_measured_from_parameters(params_kin);
+    constrains[0] = dof.calc_mass_pi0() - m_pi0;
+    constrains[1] = dof.calc_mass_proton() - m_proton;
+
     return constrains;
   }
 
@@ -68,14 +72,23 @@ public:
     return penalty;
   }
 
+  // [[nodiscard]] auto
+  // generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) const {
+  //   auto &rand = get_thread_local_random();
+  //   from.Add("E1", measured.E1 * (1 + rand.Gaus(0, sigma_e_1)), 0.001);
+  //   from.Add("E2", measured.E2 * (1 + rand.Gaus(0, sigma_e_2)), 0.001);
+  //   from.Add("Elepton", measured.Elepton, 0.001);
+  //   from.Add("OA", measured.theta_2gamma + rand.Gaus(0, sigma_oa), 0.001);
+  //   from.Add("Theta_lepton_pi0", measured.theta_lepton_pi0 , 0.001);
+  //   return from;
+  // }
   [[nodiscard]] auto
   generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) const {
-    auto &rand = get_thread_local_random();
-    from.Add("E1", measured.E1 * (1 + rand.Gaus(0, sigma_e_1)), 0.001);
-    from.Add("E2", measured.E2 * (1 + rand.Gaus(0, sigma_e_2)), 0.001);
+    from.Add("E1", measured.E1);
+    from.Add("E2", measured.E2);
     from.Add("Elepton", measured.Elepton, 0.001);
-    from.Add("OA", measured.theta_2gamma + rand.Gaus(0, sigma_oa), 0.001);
-    from.Add("Theta_lepton_pi0", measured.theta_lepton_pi0, 0.001);
+    from.Add("OA", measured.theta_2gamma);
+    from.Add("Theta_lepton_pi0", measured.theta_lepton_pi0);
     return from;
   }
 
@@ -88,7 +101,7 @@ private:
   proton_dof measured;
 };
 
-proton_dof from_2_gamma(const std::array<momentum_t, 3> &system) {
+proton_dof from_system(const std::array<momentum_t, 3> &system) {
   proton_dof ret{};
   ret.Elepton = system[0].E();
   ret.E1 = system[1].E();
@@ -99,6 +112,26 @@ proton_dof from_2_gamma(const std::array<momentum_t, 3> &system) {
   return ret;
 }
 
-using KFPi0Solver3DDM = SingleKFLagMulDoubleMin<Problem5D>;
+#include <print>
+using KFPi0Solver5D = SingleKFLagMul<Problem5D>;
 std::optional<std::tuple<proton_dof, double>>
-kf_pi0_3D_DM(const std::array<momentum_t, 3> &system) {}
+kf_pi0_5D_ALM(const std::array<momentum_t, 3> &system) {
+  auto smear_stra = GetSmearStrategy(-11);
+  auto smeared_lepton = smear_stra->do_smearing(system[0]);
+  auto smeared_lepton_E = smeared_lepton.E();
+
+  auto smear_stra_gamma = GetSmearStrategy(22);
+  auto smeared_gamma_1 = smear_stra_gamma->do_smearing(system[1]);
+  auto smeared_gamma_1_E = smeared_gamma_1.E();
+  // auto new_lepton_p3 = system[0].Vect().Unit() * smeared_lepton_p;
+  // auto new_lepton = ROOT::Math::PxPyPzMVector(
+  //     new_lepton_p3.X(), new_lepton_p3.Y(), new_lepton_p3.Z(),
+  //     system[0].M());
+  // auto before_fit = system;
+  // before_fit[0] = new_lepton;
+  auto dof = from_system(system);
+  // dof.E1 = smeared_gamma_1_E;
+  dof.Elepton = smeared_lepton_E;
+  auto res =  KFPi0Solver5D::do_kinematics_fit(dof);
+  return res;
+}

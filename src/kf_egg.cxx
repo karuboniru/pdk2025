@@ -14,6 +14,7 @@
 #include <Minuit2/MnSimplex.h>
 #include <Minuit2/MnStrategy.h>
 #include <Minuit2/MnUserParameters.h>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <ranges>
@@ -74,28 +75,81 @@ public:
   double get_parameter_penalty(const para_view_t &params_kin) const {
     auto fitted = get_measured_from_parameters(params_kin);
     double penalty = 0.0;
-    for (auto &&[orig, fit, s_ang, s_mom] :
-         std::views::zip(measured, fitted, sigma_angle, sigma_momentum)) {
-      // angle penalty
+    for (auto &&[orig, fit, s_ang, s_mom, pdg] : std::views::zip(
+             measured, fitted, sigma_angle, sigma_momentum, pdg_ids)) {
+      // for (auto &&[orig, fit, pdg] : std::views::zip(measured, fitted,
+      // pdg_ids)) { angle penalty
       ROOT::Math::XYZVector orig_dir = orig.Vect().Unit();
       ROOT::Math::XYZVector fitted_dir = fit.Vect().Unit();
-      double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
-      penalty += chi2(angle_diff, 0., s_ang);
+      // double angle_diff = std::acos(orig_dir.Dot(fitted_dir));
+      auto safe_cos = std::clamp(orig_dir.Dot(fitted_dir), -1.0, 1.0);
+      double angle_diff = std::acos(safe_cos); // keep in radians since s_ang is
+                                               // in radians if (s_ang == 0) {
+
+      double pred_momentum_sigma = s_mom;
+      double pred_angle_sigma = s_ang;
+
+      //   throw std::runtime_error("Zero angular sigma encountered");
+      // }
+      // penalty += get_llh_angular(angle_diff, pred_angle_sigma);
+
+      // penalty += chi2(angle_diff, 0., s_ang);
+
+      // if (angle_diff > s_ang / 1.5)
+      //   penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
+      // else
+      // penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
+      // if (angle_diff > s_ang / 1.5)
+      //   penalty += rayleigh_log_likelihood_normalized(angle_diff, s_ang
+      //   / 1.5) -
+      //              rayleigh_log_likelihood_normalized(s_ang / 1.5, s_ang
+      //              / 1.5);
+      // if (angle_diff > s_ang / 1.5)
+      //   penalty += chi2(angle_diff, s_ang / 1.5, s_ang);
+      // else
+      //   penalty += chi2(angle_diff, s_ang / 1.5, s_ang/2.);
+
+      // else
+      constexpr double threshold = 1e-3;
+      if (angle_diff > threshold)
+        penalty += rayleigh_log_likelihood_normalized(angle_diff,
+                                                      pred_angle_sigma / 1.5);
+      else
+        penalty += rayleigh_log_likelihood_normalized(threshold,
+                                                      pred_angle_sigma / 1.5);
 
       // momentum penalty
       double orig_mom = orig.P();
       double fitted_mom = fit.P();
-      penalty += chi2(fitted_mom / orig_mom, 1., s_mom);
+      penalty += chi2(fitted_mom / orig_mom, 1., pred_momentum_sigma);
     }
     return penalty;
   }
 
   auto generate_initial_parameters(ROOT::Minuit2::MnUserParameters from) const {
     auto &local_rand = get_thread_local_random();
+    auto gamma_smear_strategy = GetSmearStrategy(22);
     for (auto &&[id, particle_measured] : measured | std::views::enumerate) {
-      from.Add(std::format("x{}", id), local_rand.Gaus(0.0, 0.01), 0.01);
-      from.Add(std::format("y{}", id), local_rand.Gaus(0.0, 0.01), 0.01);
-      from.Add(std::format("z{}", id), local_rand.Gaus(0.0, 0.01), 0.01);
+      auto smeared = gamma_smear_strategy->do_smearing(particle_measured);
+      auto x = smeared.Vect().X();
+      auto dx = x - particle_measured.Vect().X();
+      auto y = smeared.Vect().Y();
+      auto dy = y - particle_measured.Vect().Y();
+      auto z = smeared.Vect().Z();
+      auto dz = z - particle_measured.Vect().Z();
+      if (std::isnan(x) || std::isnan(y) || std::isnan(z)) {
+        std::cerr << "NaN encountered in initial parameter generation for "
+                     "particle "
+                  << id << "\n";
+        throw std::runtime_error(
+            "NaN encountered in initial parameter generation");
+      }
+      from.Add(std::format("x{}", id), x,
+               std::abs(dx) > 1e-6 ? std::abs(dx) : 0.0001);
+      from.Add(std::format("y{}", id), y,
+               std::abs(dy) > 1e-6 ? std::abs(dy) : 0.0001);
+      from.Add(std::format("z{}", id), z,
+               std::abs(dz) > 1e-6 ? std::abs(dz) : 0.0001);
     }
     return from;
   }
@@ -110,6 +164,14 @@ public:
                          masses, ret)) {
       auto E = std::sqrt(p3[0] * p3[0] + p3[1] * p3[1] + p3[2] * p3[2] +
                          mass * mass);
+      if (std::isnan(E)) {
+        std::cerr << "Non-physical energy encountered in parameter "
+                  << "conversion: "
+                  << "px=" << p3[0] << ", py=" << p3[1] << ", pz=" << p3[2]
+                  << ", mass=" << mass << "\n";
+        throw std::runtime_error(
+            "Non-physical energy encountered in parameter conversion");
+      }
       target = momentum_t(p3[0], p3[1], p3[2], E);
     }
 
@@ -118,14 +180,28 @@ public:
 
 private:
   answer_t measured;
-  std::array<double, particle_count> sigma_angle{};
+  std::array<double, particle_count> sigma_angle{}; // radians
   std::array<double, particle_count> sigma_momentum{};
   constexpr static std::array<double, particle_count> masses{0.000511, 0.0,
                                                              0.0};
+  constexpr static std::array<int, particle_count> pdg_ids{-11, 22, 22};
 };
 
 using KFPi0Solver = SingleKFLagMul<Problem9D, 0.5, 0.0, 2.0>;
 std::optional<std::tuple<std::array<momentum_t, 3>, double>>
 kf_pi0_full(const std::array<momentum_t, 3> &system) {
   return KFPi0Solver::do_kinematics_fit(system);
+}
+
+double get_chi2(const std::array<momentum_t, 3> &meas,
+                const std::array<momentum_t, 3> &probe) {
+  Problem9D problem(meas);
+  std::vector<double> params;
+  for (auto &&p : probe) {
+    params.push_back(p.Px());
+    params.push_back(p.Py());
+    params.push_back(p.Pz());
+  }
+  auto chi2 = problem.get_parameter_penalty(params);
+  return chi2;
 }

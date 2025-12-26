@@ -16,3 +16,9 @@ kf_pi0_3D_ALM(const std::array<momentum_t, 2> &gammas);
 
 std::optional<std::tuple<std::array<momentum_t, 3>, double>>
 kf_pi0_full(const std::array<momentum_t, 3> &system);
+
+std::optional<std::tuple<proton_dof, double>>
+kf_pi0_5D_ALM(const std::array<momentum_t, 3> &system);
+
+double get_chi2(const std::array<momentum_t, 3> &meas,
+                const std::array<momentum_t, 3> &probe);

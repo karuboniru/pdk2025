@@ -31,3 +31,4 @@ public:
 ISmearStrategy *GetSmearStrategy(int pdg_particle);
 
 void initializeGaussianSmearStrategy();
+double get_llh_angular(double oa, double sigma);
