@@ -6,6 +6,7 @@
 #include <TMemFile.h>
 #include <TROOT.h>
 #include <format>
+#include <memory>
 #include <ranges>
 
 #include <ROOT/RDataFrame.hxx>
@@ -21,6 +22,7 @@
 #include "EvtTracker2event.h"
 #include "cmdline.h"
 #include "common_tools.hxx"
+#include "commondefine.h"
 #include "event.h"
 #include "smear.h"
 
@@ -63,6 +65,8 @@ int main(int argc, char **argv) {
   } catch (...) {
     // weight already exists
   }
+
+  auto total_weight = tracker_df.Sum("weight");
 
   auto df_sliced =
       tracker_df
@@ -175,6 +179,13 @@ int main(int argc, char **argv) {
   df_sliced.Snapshot("sample_event", output_path,
                      {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight",
                       "raw_proton_momentum", "is_transparent"});
+
+  {
+    std::unique_ptr<TFile, TFileDeleter> output_file(
+        TFile::Open(output_path.c_str(), "UPDATE"));
+    double total_weight_value = *total_weight;
+    output_file->WriteObject(&total_weight_value, "total_weight");
+  }
 
   return 0;
 }

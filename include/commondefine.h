@@ -83,3 +83,7 @@ DefineForEPi(FilterTrackedRDF all_with_vars);
 std::array<ROOT::RDF::RNode, 3> FilterSignalKinematics(ROOT::RDF::RNode df);
 std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df);
 std::array<FilterTrackedRDF, 3> FilterSignalKinematicsNew(FilterTrackedRDF df);
+
+struct TFileDeleter {
+  void operator()(TFile *file) const noexcept;
+};

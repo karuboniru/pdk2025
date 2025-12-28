@@ -235,3 +235,10 @@ void FilterTrackedRDF::Report() {
         m_initial_weight_sum.GetValue(), count.GetValue());
   }
 }
+
+void TFileDeleter::operator()(TFile *file) const noexcept {
+  if (file && !file->IsZombie()) {
+    file->Close();
+  }
+  delete file;
+}
