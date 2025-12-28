@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
   {
     std::unique_ptr<TFile, TFileDeleter> output_file(
         TFile::Open(output_path.c_str(), "UPDATE"));
-    double total_weight_value = *total_weight;
+    ROOT::RVec<double> total_weight_value = {*total_weight};
     output_file->WriteObject(&total_weight_value, "total_weight");
   }
 
