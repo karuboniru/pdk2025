@@ -1,11 +1,15 @@
 #include "commondefine.h"
+#include "cmdline.h"
 #include "data.h"
 #include "event.h"
 #include "local_rand.h"
 
 bool accept_by_probability(double prob) {
-  auto &rand_gen = get_thread_local_random();
-  return rand_gen.Uniform(0.0, 1.0) < prob;
+  if (do_n_tagging) {
+    auto &rand_gen = get_thread_local_random();
+    return rand_gen.Uniform(0.0, 1.0) < prob;
+  }
+  return true;
 }
 
 auto iter_pair(auto &iter_range) {

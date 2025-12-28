@@ -10,5 +10,6 @@ struct configuration {
 
 extern bool nofsi;
 extern bool is_mupi;
+extern bool do_n_tagging;
 
 configuration parse_command_line(int argc, char **argv);

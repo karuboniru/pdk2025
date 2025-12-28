@@ -5,6 +5,7 @@
 
 bool nofsi = false;
 bool is_mupi = false;
+bool do_n_tagging = false;
 
 configuration parse_command_line(int argc, char **argv) {
   namespace po = boost::program_options;
@@ -20,6 +21,7 @@ configuration parse_command_line(int argc, char **argv) {
     ("genie-mode,g", po::bool_switch(&config.genie_mode)->default_value(false), "Enable GENIE mode")
     ("no-fsi,n", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
     ("mu-pi-mode,m", po::bool_switch(&is_mupi)->default_value(false), "Enable mu-pi mode")
+    ("n-tagging,t", po::bool_switch(&do_n_tagging)->default_value(false), "Enable neutron tagging")
     ;
   // clang-format on
   pos_desc.add("input", -1);
