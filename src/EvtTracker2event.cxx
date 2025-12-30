@@ -9,8 +9,7 @@
 #include <span>
 
 double p_no_neutron_tag(size_t n_neutron) {
-  constexpr double p_tag_one = 0.7;
-  return std::pow(1 - p_tag_one, n_neutron);
+  return std::pow(1 - n_tagging_eff, n_neutron);
 }
 
 auto general_define(auto &&df) {

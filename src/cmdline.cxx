@@ -6,6 +6,7 @@
 bool nofsi = false;
 bool is_mupi = false;
 bool do_n_tagging = false;
+double n_tagging_eff = 0.0;
 
 configuration parse_command_line(int argc, char **argv) {
   namespace po = boost::program_options;
@@ -22,6 +23,7 @@ configuration parse_command_line(int argc, char **argv) {
     ("no-fsi,n", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
     ("mu-pi-mode,m", po::bool_switch(&is_mupi)->default_value(false), "Enable mu-pi mode")
     ("n-tagging,t", po::bool_switch(&do_n_tagging)->default_value(false), "Enable neutron tagging")
+    ("n-tagging-eff,e", po::value<double>(&n_tagging_eff)->default_value(0.25), "Neutron tagging efficiency (0.0 - 1.0)")
     ;
   // clang-format on
   pos_desc.add("input", -1);
