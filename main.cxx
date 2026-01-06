@@ -329,6 +329,17 @@ int main(int argc, char **argv) {
         make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
   }
 
+  auto angle_list = std::to_array({"true_lead_photon_sublead_photon_angle",
+                                   "smared_lead_photon_sublead_photon_angle",
+                                   "true_electron_pi0_system_angle",
+                                   "smared_electron_pi0_system_angle"});
+  for (auto &angle_var : angle_list) {
+    histograms.emplace_back(
+        make_plot(df_epi_with_vars, angle_model, angle_var, "epi_"));
+    histograms.emplace_back(
+        make_plot(all_nofsi, angle_model, angle_var, "noint_"));
+  }
+
   auto df_epi_with_vars_3ring =
       df_epi_with_vars.Filter([](const size_t nrings) { return nrings == 3; },
                               {"nrings"}, "3 rings in detector");
