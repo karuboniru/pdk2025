@@ -4,6 +4,7 @@
 #include <TDatabasePDG.h>
 #include <TMemFile.h>
 #include <TROOT.h>
+#include <algorithm>
 #include <array>
 #include <format>
 #include <print>
@@ -139,6 +140,16 @@ int main(int argc, char **argv) {
                     return final_state_system.P();
                   },
                   {"final_state_system"})
+          .Define("raw_epi_angle",
+                  [](const NeutrinoEvent &event) {
+                    auto &lepton = event.out_range(-11).begin()->second;
+                    auto &pi0 = event.out_range(111).begin()->second;
+                    auto cos_angle =
+                        lepton.Vect().Unit().Dot(pi0.Vect().Unit());
+                    cos_angle = std::clamp(cos_angle, -1.0, 1.0);
+                    return std::acos(cos_angle) * to_deg;
+                  },
+                  {"EventRecord"})
           .Define(
               "channel_name",
               [](NeutrinoEvent &e) { return e.get_channelname_no_nucleon(); },
@@ -301,6 +312,10 @@ int main(int argc, char **argv) {
 
   histograms.emplace_back(
       make_plot(df_all, {"nrings", "nrings", 20, -0.5, 19.5}, "nrings"));
+  histograms.emplace_back(
+      make_plot(df_all, {"nshower_rings", "nshower_rings", 20, -0.5, 19.5},
+                "nshower_rings"));
+  histograms.emplace_back(make_plot(df_all, angle_model, "raw_epi_angle"));
 
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
