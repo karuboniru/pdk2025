@@ -280,6 +280,8 @@ int main(int argc, char **argv) {
 
   ROOT::RDF::TH1DModel angle_model{"angle_2gamma", "angle between 2 gammas",
                                    180, 0.0, 180.};
+  ROOT::RDF::TH1DModel cos_angle_model{"angle_2gamma", "angle between 2 gammas",
+                                       180, -1., 1.};
 
   auto &&[df_epi_with_vars, to_snapshot, mass_list, p_list] =
       DefineForEPi(ROOT::RDF::RNode{df_epi_final_state});
@@ -348,11 +350,19 @@ int main(int argc, char **argv) {
                                    "smared_lead_photon_sublead_photon_angle",
                                    "true_electron_pi0_system_angle",
                                    "smared_electron_pi0_system_angle"});
+  auto cos_deg = [](double angle) { return std::cos(angle / to_deg); };
   for (auto &angle_var : angle_list) {
+    auto cos_angle_var = std::string("cos_") + angle_var;
     histograms.emplace_back(
         make_plot(df_epi_with_vars, angle_model, angle_var, "epi_"));
     histograms.emplace_back(
+        make_plot(df_epi_with_vars.Define(cos_angle_var, cos_deg, {angle_var}),
+                  cos_angle_model, cos_angle_var, "epi_"));
+    histograms.emplace_back(
         make_plot(all_nofsi, angle_model, angle_var, "noint_"));
+    histograms.emplace_back(
+        make_plot(all_nofsi.Define(cos_angle_var, cos_deg, {angle_var}),
+                  cos_angle_model, cos_angle_var, "noint_"));
   }
 
   auto df_epi_with_vars_3ring =
