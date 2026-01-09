@@ -317,7 +317,12 @@ int main(int argc, char **argv) {
   histograms.emplace_back(
       make_plot(df_all, {"nshower_rings", "nshower_rings", 20, -0.5, 19.5},
                 "nshower_rings"));
+  auto cos_deg = [](double angle) { return std::cos(angle / to_deg); };
+
   histograms.emplace_back(make_plot(df_all, angle_model, "raw_epi_angle"));
+  histograms.emplace_back(
+      make_plot(df_all.Define("cos_raw_epi_angle", cos_deg, {"raw_epi_angle"}),
+                cos_angle_model, "cos_raw_epi_angle"));
 
   for (const auto &varname :
        std::to_array({"raw_mass_proton", "raw_final_state_mass"})) {
@@ -350,7 +355,6 @@ int main(int argc, char **argv) {
                                    "smared_lead_photon_sublead_photon_angle",
                                    "true_electron_pi0_system_angle",
                                    "smared_electron_pi0_system_angle"});
-  auto cos_deg = [](double angle) { return std::cos(angle / to_deg); };
   for (auto &angle_var : angle_list) {
     auto cos_angle_var = std::string("cos_") + angle_var;
     histograms.emplace_back(
