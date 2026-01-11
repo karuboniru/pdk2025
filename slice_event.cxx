@@ -169,16 +169,61 @@ int main(int argc, char **argv) {
               "is_transparent",
               [](const NeutrinoEvent &event) { return event.is_transparent(); },
               {"EventRecord"})
-          .Filter([](double e_lepton,
-                     double e_pi0) { return e_lepton < 1.0 && e_pi0 < 1.0; },
-                  {"E_lepton", "E_pi0"}, "Both lepton and pi0 energy < 1.5 GeV")
-      // .Range(0, 4'000'000)
-      ;
+          .Define(
+              "pi0_mass",
+              [](const momentum_pair &momentum) { return momentum.second.M(); },
+              {"pi0_system"})
+          .Filter(
+              [](const double pi0_mass, const size_t nrings) {
+                return nrings == 2 || (pi0_mass > 0.085 && pi0_mass < 0.185);
+              },
+              {"pi0_mass", "nrings"}, "Pi0 mass between 85 MeV and 185 MeV")
+          .Define("rec_proton_system",
+                  [](const RecResult &rec) {
+                    return rec.lepton.m_pair.second +
+                           rec.leading_gamma.m_pair.second +
+                           rec.subleading_gamma.value_or({}).m_pair.second;
+                  },
+                  {"rec"})
+          .Define("smear_proton_momentum",
+                  [](const ROOT::Math::PxPyPzEVector &proton_system) {
+                    return proton_system.P();
+                  },
+                  {"rec_proton_system"})
+          .Define("smear_proton_mass",
+                  [](const ROOT::Math::PxPyPzEVector &proton_system) {
+                    return proton_system.M();
+                  },
+                  {"rec_proton_system"})
+          .Filter(
+              [](const double smear_proton_mass) {
+                return smear_proton_mass < 1.2;
+              },
+              {"smear_proton_mass"}, "Reconstructed proton mass < 1.2 GeV")
+          .Filter(
+              [](const double smear_proton_momentum) {
+                return smear_proton_momentum < 1.2;
+              },
+              {"smear_proton_momentum"},
+              "Reconstructed proton momentum < 1.2 GeV");
+  // .Filter([](double e_lepton,
+  //            double e_pi0) { return e_lepton < 1.0 && e_pi0 < 1.0; },
+  //         {"E_lepton", "E_pi0"},
+  //         "Both lepton and pi0 energy < 1.5 GeV");
   ROOT::RDF::Experimental::AddProgressBar(df_sliced);
 
   df_sliced.Snapshot("sample_event", output_path,
-                     {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight",
-                      "raw_proton_momentum", "is_transparent"});
+                     {
+                         "E_lepton",
+                         "E_pi0",
+                         "cos_theta_lepton_pi0",
+                         "weight",
+                         "raw_proton_momentum",
+                         "is_transparent",
+                         "nrings",
+                         "smear_proton_mass",
+                         "smear_proton_momentum",
+                     });
 
   {
     std::unique_ptr<TFile, TFileDeleter> output_file(

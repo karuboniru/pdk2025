@@ -40,6 +40,7 @@ target_link_libraries(event
   ROOT::Minuit2
   boost_program_options
   EvtGen::EvtGen
+  ROOT::ROOTDataFrame
 )
 
 root_generate_dictionary(
