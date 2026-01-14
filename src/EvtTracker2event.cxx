@@ -1,6 +1,7 @@
 #include "EvtTracker2event.h"
 #include "RtypesCore.h"
 #include "event.h"
+#include "local_rand.h"
 #include <Math/LorentzVector.h>
 #include <cmdline.h>
 #include <cstdlib>
@@ -10,6 +11,12 @@
 
 double p_no_neutron_tag(size_t n_neutron) {
   return std::pow(1 - n_tagging_eff, n_neutron);
+}
+
+size_t n_michel_electrons_tagged(size_t nmichel_electrons_raw) {
+  // assuming tagging efficiency of 88%, binomial distribution
+  auto &rng = get_thread_local_random();
+  return rng.Binomial(nmichel_electrons_raw, 0.88);
 }
 
 auto general_define(auto &&df) {
@@ -24,11 +31,13 @@ auto general_define(auto &&df) {
                 return event.count_shower_rings_in_detector();
               },
               {"EventRecord"})
-      .Define("nmichel_electrons",
+      .Define("nmichel_electrons_raw",
               [](const NeutrinoEvent &event) {
                 return event.get_n_michel_electrons();
               },
               {"EventRecord"})
+      .Define("nmichel_electrons", n_michel_electrons_tagged,
+              {"nmichel_electrons_raw"})
       .Define("n_neutron", [](NeutrinoEvent &e) { return e.count_post(2112); },
               {"EventRecord"})
       .Define("p_no_neutron_tag", p_no_neutron_tag, {"n_neutron"});
