@@ -88,10 +88,10 @@ std::string NeutrinoEvent::get_channelname() const {
 }
 
 std::string NeutrinoEvent::get_channelname_no_nucleon() const {
-  // auto is_this_transparent = is_transparent();
-  // if (is_this_transparent) {
-  //   return "transparent";
-  // }
+  auto is_this_transparent = is_transparent();
+  if (is_this_transparent) {
+    return "transparent";
+  }
   std::string channel_name_no_nucleon;
   std::stringstream ss{};
   // ss << "e+ ";
