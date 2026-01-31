@@ -85,6 +85,17 @@ void make_pie_plot(auto &data, const std::string &filename) {
 int main(int argc, char **argv) {
   constexpr double to_deg = 180. / M_PI;
   initializeGaussianSmearStrategy();
+  // {
+  //   auto position_smearing = GetSmearStrategy(-11);
+  //   std::println("p = 0.45 GeV e+, sigma_angle={}, sigma_mom={}",
+  //                position_smearing->get_sigma_angle(0.45),
+  //                position_smearing->get_sigma_energy(0.45));
+  //   auto gamma_smearing = GetSmearStrategy(22);
+  //   std::println("p = 0.45 GeV gamma, sigma_angle={}, sigma_mom={}",
+  //                gamma_smearing->get_sigma_angle(0.45),
+  //                gamma_smearing->get_sigma_energy(0.45));
+  //   exit(0);
+  // }
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   // trigger initialization of everything
   EvtGenInterface::get_instance();

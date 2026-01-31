@@ -39,7 +39,8 @@ auto general_define(auto &&df) {
                          {"nmichel_electrons_raw"});
 
   if (external_capture_count) {
-    return ret.Alias("n_neutron", "n_capture")
+    return ret
+        .Define("n_neutron", [](int n) -> size_t { return n; }, {"n_capture"})
         .Define("p_no_neutron_tag", p_no_neutron_tag, {"n_neutron"});
   }
   return ret
