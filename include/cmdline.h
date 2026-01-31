@@ -12,5 +12,6 @@ extern bool nofsi;
 extern bool is_mupi;
 extern bool do_n_tagging;
 extern double n_tagging_eff;
+extern double unit;
 
 configuration parse_command_line(int argc, char **argv);

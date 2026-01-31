@@ -50,14 +50,15 @@ ROOT::RDF::RNode TrackerPrepare(ROOT::RDF::RNode df) {
          const ROOT::RVec<int> &StdHepStatus,
          const ROOT::RVec<double> &StdHepP4_) {
         NeutrinoEvent e{};
-        for (const auto &[pdg, status, p4] : std::views::zip(
-                 StdHepPdg, StdHepStatus,
-                 std::ranges::iota_view(StdHepP4_.data()) |
-                     std::views::chunk(4) |
-                     std::views::transform([](auto &&chunk) {
-                       return ROOT::Math::PxPyPzEVector{*chunk[1], *chunk[2],
-                                                        *chunk[3], *chunk[0]};
-                     }))) {
+        for (const auto &[pdg, status, p4] :
+             std::views::zip(StdHepPdg, StdHepStatus,
+                             std::ranges::iota_view(StdHepP4_.data()) |
+                                 std::views::chunk(4) |
+                                 std::views::transform([](auto &&chunk) {
+                                   return ROOT::Math::PxPyPzEVector{
+                                       *chunk[1] * unit, *chunk[2] * unit,
+                                       *chunk[3] * unit, *chunk[0] * unit};
+                                 }))) {
           switch (status) {
           case 0:
             e.add_in(pdg, p4);
@@ -89,14 +90,15 @@ ROOT::RDF::RNode TrackerPrepareGENIE(ROOT::RDF::RNode df) {
       [](const ROOT::RVec<int> &StdHepPdg, const ROOT::RVec<int> &StdHepStatus,
          const ROOT::RVec<double> &StdHepP4_) {
         NeutrinoEvent e{};
-        for (auto &&[pdg, status, p4] : std::views::zip(
-                 StdHepPdg, StdHepStatus,
-                 std::ranges::iota_view(StdHepP4_.data()) |
-                     std::views::chunk(4) |
-                     std::views::transform([](auto &&chunk) {
-                       return ROOT::Math::PxPyPzEVector{*chunk[0], *chunk[1],
-                                                        *chunk[2], *chunk[3]};
-                     }))) {
+        for (auto &&[pdg, status, p4] :
+             std::views::zip(StdHepPdg, StdHepStatus,
+                             std::ranges::iota_view(StdHepP4_.data()) |
+                                 std::views::chunk(4) |
+                                 std::views::transform([](auto &&chunk) {
+                                   return ROOT::Math::PxPyPzEVector{
+                                       *chunk[0] * unit, *chunk[1] * unit,
+                                       *chunk[2] * unit, *chunk[3] * unit};
+                                 }))) {
           switch (status) {
           case 3:
             e.add_in(pdg, p4);
@@ -145,7 +147,8 @@ ROOT::RDF::RNode TrackerPrepareNeutrino(ROOT::RDF::RNode df) {
                      std::views::chunk(4) |
                      std::views::transform(
                          [](auto &&chunk) -> ROOT::Math::PxPyPzEVector {
-                           return {*chunk[0], *chunk[1], *chunk[2], *chunk[3]};
+                           return {*chunk[0] * unit, *chunk[1] * unit,
+                                   *chunk[2] * unit, *chunk[3] * unit};
                          }))) {
           switch (status) {
           case 0:
