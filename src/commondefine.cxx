@@ -3,6 +3,8 @@
 #include "data.h"
 #include "event.h"
 #include "local_rand.h"
+#include <ranges>
+#include <TFile.h>
 
 bool accept_by_probability(double prob) {
   if (do_n_tagging) {

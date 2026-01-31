@@ -20,24 +20,29 @@ size_t n_michel_electrons_tagged(size_t nmichel_electrons_raw) {
 }
 
 auto general_define(auto &&df) {
-  return df
-      .Define("nrings",
-              [](const NeutrinoEvent &event) {
-                return event.count_rings_in_detector();
-              },
-              {"EventRecord"})
-      .Define("nshower_rings",
-              [](const NeutrinoEvent &event) {
-                return event.count_shower_rings_in_detector();
-              },
-              {"EventRecord"})
-      .Define("nmichel_electrons_raw",
-              [](const NeutrinoEvent &event) {
-                return event.get_n_michel_electrons();
-              },
-              {"EventRecord"})
-      .Define("nmichel_electrons", n_michel_electrons_tagged,
-              {"nmichel_electrons_raw"})
+  auto ret = df.Define("nrings",
+                       [](const NeutrinoEvent &event) {
+                         return event.count_rings_in_detector();
+                       },
+                       {"EventRecord"})
+                 .Define("nshower_rings",
+                         [](const NeutrinoEvent &event) {
+                           return event.count_shower_rings_in_detector();
+                         },
+                         {"EventRecord"})
+                 .Define("nmichel_electrons_raw",
+                         [](const NeutrinoEvent &event) {
+                           return event.get_n_michel_electrons();
+                         },
+                         {"EventRecord"})
+                 .Define("nmichel_electrons", n_michel_electrons_tagged,
+                         {"nmichel_electrons_raw"});
+
+  if (external_capture_count) {
+    return ret.Alias("n_neutron", "n_capture")
+        .Define("p_no_neutron_tag", p_no_neutron_tag, {"n_neutron"});
+  }
+  return ret
       .Define("n_neutron", [](NeutrinoEvent &e) { return e.count_post(2112); },
               {"EventRecord"})
       .Define("p_no_neutron_tag", p_no_neutron_tag, {"n_neutron"});

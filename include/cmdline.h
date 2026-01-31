@@ -13,5 +13,6 @@ extern bool is_mupi;
 extern bool do_n_tagging;
 extern double n_tagging_eff;
 extern double unit;
+extern bool external_capture_count;
 
 configuration parse_command_line(int argc, char **argv);
