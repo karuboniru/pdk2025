@@ -182,3 +182,12 @@ target_link_libraries(slice_event
   ROOT::ROOTDataFrame
   event
 )
+
+add_executable(capture_check capture_check.cxx)
+
+target_link_libraries(capture_check
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
