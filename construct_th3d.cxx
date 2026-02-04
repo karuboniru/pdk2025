@@ -82,12 +82,18 @@ int main(int argc, char **argv) {
           .Define("raw_proton_momentum",
                   [](const NeutrinoEvent &event) {
                     auto proton = event.in_range(2212);
+                    if (proton.begin() == proton.end()) {
+                      return 0.0;
+                    }
                     return proton.begin()->second.P();
                   },
                   {"EventRecord"})
           .Define("raw_mass_proton",
                   [](const NeutrinoEvent &event) {
                     auto proton = event.in_range(2212);
+                    if (proton.begin() == proton.end()) {
+                      return 0.0;
+                    }
                     return proton.begin()->second.M();
                   },
                   {"EventRecord"})
