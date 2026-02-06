@@ -68,6 +68,15 @@ public:
         name, std::forward<F>(func), cols)};
     return new_node;
   }
+  
+  template <typename F>
+  FilterTrackedRDF Redefine(const std::string &name, F &&func,
+                          const std::vector<std::string> &cols) {
+    FilterTrackedRDF new_node = *this;
+    new_node = ROOT::RDF::RNode{static_cast<ROOT::RDF::RNode *>(this)->Redefine(
+        name, std::forward<F>(func), cols)};
+    return new_node;
+  }
 
   void Report();
 };

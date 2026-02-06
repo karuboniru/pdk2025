@@ -3,8 +3,8 @@
 #include "data.h"
 #include "event.h"
 #include "local_rand.h"
-#include <ranges>
 #include <TFile.h>
+#include <ranges>
 
 bool accept_by_probability(double prob) {
   if (do_n_tagging) {
@@ -134,8 +134,14 @@ std::array<ROOT::RDF::RNode, 3> FilterSignalKinematics(ROOT::RDF::RNode df) {
           .Filter([](double rec_p_p) { return rec_p_p < 0.25; },
                   {"smared_epi_system_p"},
                   "reconstructed proton momentum cut (< 250 MeV)")
-          .Filter(accept_by_probability, {"p_no_neutron_tag"},
-                  "no neutron tagging");
+          .Redefine("weight",
+                    [&](double w, double p_no_neutron_tag) {
+                      if (do_n_tagging) {
+                        return w * p_no_neutron_tag;
+                      }
+                      return w;
+                    },
+                    {"weight", "p_no_neutron_tag"});
   auto signal_upper = signal.Filter(
       [](double rec_p_p) { return rec_p_p >= 0.1; }, {"smared_epi_system_p"},
       "reconstructed proton momentum upper region (>= 100 MeV)");
@@ -170,8 +176,16 @@ std::array<FilterTrackedRDF, 3> FilterSignalKinematics(FilterTrackedRDF df) {
           .FilterTracked([](double rec_p_p) { return rec_p_p < 0.25; },
                          {"smared_epi_system_p"},
                          "reconstructed proton momentum cut (< 250 MeV)")
-          .FilterTracked(accept_by_probability, {"p_no_neutron_tag"},
-                         "no neutron tagging");
+          // .FilterTracked(accept_by_probability, {"p_no_neutron_tag"},
+          //                "no neutron tagging");
+          .Redefine("weight",
+                    [&](double w, double p_no_neutron_tag) {
+                      if (do_n_tagging) {
+                        return w * p_no_neutron_tag;
+                      }
+                      return w;
+                    },
+                    {"weight", "p_no_neutron_tag"});
   auto signal_upper = signal.FilterTracked(
       [](double rec_p_p) { return rec_p_p >= 0.1; }, {"smared_epi_system_p"},
       "reconstructed proton momentum upper region (>= 100 MeV)");
