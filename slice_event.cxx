@@ -219,6 +219,7 @@ int main(int argc, char **argv) {
                          "cos_theta_lepton_pi0",
                          "weight",
                          "raw_proton_momentum",
+                         "raw_mass_proton",
                          "is_transparent",
                          "nrings",
                          "smear_proton_mass",
