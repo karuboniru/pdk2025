@@ -104,9 +104,10 @@ int main(int argc, char **argv) {
   auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
 
   auto tracker_df =
-      genie_mode
-          ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
-          : TrackerPrepare(ROOT::RDataFrame{"outtree", input_files});
+      (genie_mode
+           ? TrackerPrepareGENIE(ROOT::RDataFrame{"gRooTracker", input_files})
+           : TrackerPrepare(ROOT::RDataFrame{"outtree", input_files}))
+          .Define("weight", []() { return 1.0; });
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
   auto df_all =
       tracker_df
