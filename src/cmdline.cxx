@@ -19,7 +19,8 @@ configuration parse_command_line(int argc, char **argv) {
   // clang-format off
   desc.add_options()
     ("help,h", "Display this help message")
-    ("input,i", po::value<std::vector<std::string>>(&config.input_files)->required(), "Input ROOT files")
+    ("input,i", po::value<std::vector<std::string>>(&config.input_files)->multitoken(), "Input ROOT files")
+    ("input-corr,r", po::value<std::vector<std::string>>(&config.input_corr)->multitoken(), "Input ROOT files for correction")
     ("output,o", po::value<std::string>(&config.output_file)->required(), "Output ROOT file")
     ("genie-mode,g", po::bool_switch(&config.genie_mode)->default_value(false), "Enable GENIE mode")
     ("no-fsi,n", po::bool_switch(&nofsi)->default_value(false), "Disable FSI simulation")
@@ -49,6 +50,13 @@ configuration parse_command_line(int argc, char **argv) {
   if (vm.contains("help")) {
     std::cout << desc << "\n";
     exit(EXIT_SUCCESS);
+  }
+
+  // Handle positional arguments: if --input not given, use positional args
+  if (!vm.contains("input") && !vm["input"].defaulted()) {
+    if (pos_desc.max_total_count() > 0 && vm.count("input") == 0) {
+      config.input_files = vm["input"].as<std::vector<std::string>>();
+    }
   }
 
   return config;

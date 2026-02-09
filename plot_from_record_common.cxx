@@ -53,7 +53,7 @@ double angle_between(const momentum_t &p4_1, const momentum_t &p4_2) {
 int main(int argc, char **argv) {
   TH1::AddDirectory(false);
   ROOT::EnableImplicitMT();
-  auto [input_files, output_path, _] = parse_command_line(argc, argv);
+  auto [input_files, input_corr,output_path, _] = parse_command_line(argc, argv);
   if (!output_path.ends_with(".root")) {
     output_path += ".root";
   }

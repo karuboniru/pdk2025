@@ -2,11 +2,13 @@
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
 #include <ROOT/RVec.hxx>
+#include <TChain.h>
 #include <TDatabasePDG.h>
 #include <TMemFile.h>
 #include <TROOT.h>
 #include <format>
 #include <memory>
+#include <print>
 #include <ranges>
 
 #include <ROOT/RDataFrame.hxx>
@@ -53,17 +55,68 @@ ROOT::RDF::RNode get_initial_frame(bool genie_mode,
   }
 }
 
+std::tuple<ROOT::RDF::RNode, std::unique_ptr<TChain>, std::unique_ptr<TChain>>
+get_initial_frame_corr(bool genie_mode,
+                       const std::vector<std::string> &filenames,
+                       const std::vector<std::string> &corr_files) {
+  if (corr_files.empty()) {
+    return {get_initial_frame(genie_mode, filenames), nullptr, nullptr};
+  }
+
+  auto main_tree = genie_mode ? "gRooTracker" : "out_tree";
+  auto corr_tree = "out_tree";
+  auto chain_main = std::make_unique<TChain>(main_tree);
+  for (const auto &file : filenames) {
+    chain_main->Add(file.c_str());
+  }
+  auto chain_corr = std::make_unique<TChain>(corr_tree);
+  for (const auto &file : corr_files) {
+    chain_corr->Add(file.c_str());
+  }
+  chain_main->AddFriend(chain_corr.get(), "corr");
+  auto df = ROOT::RDataFrame(*chain_main);
+  if (genie_mode) {
+    return {TrackerPrepareGENIE(df), std::move(chain_main),
+            std::move(chain_corr)};
+  }
+  return {TrackerPrepareNeutrino(df), std::move(chain_main),
+          std::move(chain_corr)};
+}
+
 int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
-  auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
+  // auto [input_files, input_corr, output_path, genie_mode] =
+  //     parse_command_line(argc, argv)
+  auto &&cfg = parse_command_line(argc, argv);
+  std::println("{}", cfg);
+  auto &&[input_files, input_corr, output_path, genie_mode] = cfg;
 
-  auto tracker_df = get_initial_frame(genie_mode, input_files);
+  // auto tracker_df = get_initial_frame(genie_mode, input_files);
+  auto &&[tracker_df, chain_main, chain_corr] =
+      get_initial_frame_corr(genie_mode, input_files, input_corr);
   try {
     tracker_df = tracker_df.Define("weight", []() { return 1.0; }, {});
   } catch (...) {
     // weight already exists
+  }
+
+  if (chain_corr) {
+    tracker_df =
+        tracker_df
+            .Define("initial_proton_p4",
+                    [](const ROOT::RVecD &arr) {
+                      return ROOT::Math::PxPyPzEVector(arr[4], arr[5], arr[6],
+                                                       arr[7]);
+                    },
+                    {"corr.StdHepP4"})
+            .Define("initial_proton_p",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.P(); },
+                    {"initial_proton_p4"})
+            .Define("initial_proton_m",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"initial_proton_p4"});
   }
 
   auto total_weight = tracker_df.Sum("weight");
@@ -198,11 +251,22 @@ int main(int argc, char **argv) {
 
   ROOT::RDF::Experimental::AddProgressBar(df_sliced);
 
-  df_sliced.Snapshot("sample_event", output_path,
-                     {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight",
-                      "raw_proton_momentum", "is_transparent", "nrings",
-                      "smear_proton_mass", "smear_proton_momentum",
-                      "n_capture"});
+  std::vector<std::string> columns_to_save = {"E_lepton",
+                                              "E_pi0",
+                                              "cos_theta_lepton_pi0",
+                                              "weight",
+                                              "raw_proton_momentum",
+                                              "is_transparent",
+                                              "nrings",
+                                              "smear_proton_mass",
+                                              "smear_proton_momentum",
+                                              "n_capture"};
+  if (chain_corr) {
+    columns_to_save.emplace_back("initial_proton_p4");
+    columns_to_save.emplace_back("initial_proton_p");
+    columns_to_save.emplace_back("initial_proton_m");
+  }
+  df_sliced.Snapshot("sample_event", output_path, columns_to_save);
 
   {
     std::unique_ptr<TFile, TFileDeleter> output_file(

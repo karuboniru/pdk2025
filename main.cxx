@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
   EvtGenInterface::get_instance();
   TDatabasePDG::Instance();
   TH1::AddDirectory(false);
-  auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
+  auto [input_files,input_corr, output_path, genie_mode] = parse_command_line(argc, argv);
 
   auto tracker_df =
       (genie_mode

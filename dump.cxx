@@ -85,7 +85,7 @@ struct std::formatter<ROOT::Math::PxPyPzEVector, CharT> {
 
 int main(int argc, char **argv) {
   TH1::AddDirectory(false);
-  auto [input_files, output_path, _] = parse_command_line(argc, argv);
+  auto [input_files, input_corr, output_path, _] = parse_command_line(argc, argv);
   if (!output_path.ends_with(".root")) {
     output_path += ".root";
   }

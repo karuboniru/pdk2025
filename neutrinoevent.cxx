@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
-  auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
+  auto [input_files,input_corr, output_path, genie_mode] = parse_command_line(argc, argv);
   auto nfile = input_files.size();
 
   auto tracker_df =

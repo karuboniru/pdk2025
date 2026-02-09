@@ -67,7 +67,8 @@ int main(int argc, char **argv) {
 
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
-  auto [input_files, output_path, genie_mode] = parse_command_line(argc, argv);
+  auto [input_files, input_corr, output_path, genie_mode] =
+      parse_command_line(argc, argv);
 
   auto tracker_df = get_initial_frame(genie_mode, input_files);
   ROOT::RDF::Experimental::AddProgressBar(tracker_df);
