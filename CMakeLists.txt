@@ -191,3 +191,12 @@ target_link_libraries(capture_check
   ROOT::ROOTDataFrame
   event
 )
+
+add_executable(eff_check eff_check.cxx)
+
+target_link_libraries(eff_check
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
