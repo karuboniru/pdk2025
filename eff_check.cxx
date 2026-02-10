@@ -1,7 +1,6 @@
 #include <ROOT/RDF/InterfaceUtils.hxx>
 #include <ROOT/RDFHelpers.hxx>
 #include <ROOT/RError.hxx>
-#include <ROOT/RFile.hxx>
 #include <ROOT/RVec.hxx>
 #include <TChain.h>
 #include <TDatabasePDG.h>
