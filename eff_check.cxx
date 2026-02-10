@@ -85,10 +85,14 @@ get_initial_frame_corr(bool genie_mode,
           std::move(chain_corr)};
 }
 
-ROOT::RDF::RResultPtr<TH1D> plot_from_df(ROOT::RDF::RNode node,
-                                         const std::string &name) {
-  return node.Histo1D({name.c_str(), ";p_{N};a.u.", 50, 0.0, 1.0},
-                      "initial_proton_p", "weight");
+std::vector<ROOT::RDF::RResultPtr<TH1D>> plot_from_df(ROOT::RDF::RNode node,
+                                                      const std::string &name) {
+  return {node.Histo1D({name.c_str(), ";p_{N};a.u.", 50, 0.0, 1.0},
+                       "initial_proton_p", "weight"),
+          node.Histo1D({(name + "M").c_str(), ";M_{#nu N};a.u.", 100, 0.0, 6.0},
+                       "np_system_m", "weight"),
+          node.Histo1D({(name + "P").c_str(), ";M_{#nu N};a.u.", 100, 0.0, 8.0},
+                       "np_system_p", "weight")};
 }
 
 int main(int argc, char **argv) {
@@ -124,13 +128,38 @@ int main(int argc, char **argv) {
                     {"initial_proton_p4"})
             .Define("initial_proton_m",
                     [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
-                    {"initial_proton_p4"});
+                    {"initial_proton_p4"})
+            .Define("init_neutrino",
+                    [](const ROOT::RVecD &arr) {
+                      return ROOT::Math::PxPyPzEVector(arr[0], arr[1], arr[2],
+                                                       arr[3]);
+                    },
+                    {"corr.StdHepP4"})
+            .Define("np_system_p4",
+                    [](const ROOT::Math::PxPyPzEVector &init_nu,
+                       const ROOT::Math::PxPyPzEVector &init_p) {
+                      return init_nu + init_p;
+                    },
+                    {"init_neutrino", "initial_proton_p4"})
+            .Define("np_system_p",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.P(); },
+                    {"np_system_p4"})
+            .Define("np_system_m",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"np_system_p4"});
+    ;
   }
 
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms;
 
+  auto add_plots = [&](const std::vector<ROOT::RDF::RResultPtr<TH1D>> &plots) {
+    for (const auto &plot : plots) {
+      histograms.emplace_back(plot);
+    }
+  };
   auto total_weight = tracker_df.Sum("weight");
-  histograms.emplace_back(plot_from_df(tracker_df, "all"));
+  // histograms.emplace_back(plot_from_df(tracker_df, "all"));
+  add_plots(plot_from_df(tracker_df, "all"));
   auto df_sliced_1 =
       tracker_df
           .Define("raw_proton_momentum",
@@ -186,7 +215,7 @@ int main(int argc, char **argv) {
           .Filter(
               [](const size_t nrings) { return nrings == 2 || nrings == 3; },
               {"nrings"}, "2 or 3 rings in detector");
-  histograms.emplace_back(plot_from_df(df_sliced_1, "ring_cut"));
+  add_plots(plot_from_df(df_sliced_1, "ring_cut"));
   auto df_sliced2 = df_sliced_1.Filter(
       [](const size_t nrings, const size_t nshower_rings) {
         return is_mupi ? (nshower_rings + 1 == nrings)
@@ -194,14 +223,14 @@ int main(int argc, char **argv) {
       },
       {"nrings", "nshower_rings"},
       std::format("{} non-shower-like rings", is_mupi ? "one" : "no"));
-  histograms.emplace_back(plot_from_df(df_sliced2, "shower_like_cut"));
+  add_plots(plot_from_df(df_sliced2, "shower_like_cut"));
   auto df_sliced_3 = df_sliced2.Filter(
       [](const size_t nmichel_electrons) {
         return nmichel_electrons == (is_mupi ? 1 : 0);
       },
       {"nmichel_electrons"},
       std::format("{} michel electrons", is_mupi ? "one" : "no"));
-  histograms.emplace_back(plot_from_df(df_sliced_3, "michel_electron_cut"));
+  add_plots(plot_from_df(df_sliced_3, "michel_electron_cut"));
   auto df_sliced_4 =
       df_sliced_3
           .Define("rec",
@@ -246,7 +275,7 @@ int main(int argc, char **argv) {
                 return nrings == 2 || (pi0_mass > 0.085 && pi0_mass < 0.185);
               },
               {"pi0_mass", "nrings"}, "Pi0 mass between 85 MeV and 185 MeV");
-  histograms.emplace_back(plot_from_df(df_sliced_4, "pi0_mass_cut"));
+  add_plots(plot_from_df(df_sliced_4, "pi0_mass_cut"));
   auto df_sliced_5 =
       df_sliced_4
           .Define("rec_proton_system",
@@ -269,11 +298,13 @@ int main(int argc, char **argv) {
           .Filter([](double m) { return m > 0.8 && m < 1.05; },
                   {"smear_proton_mass"},
                   "Reconstructed proton mass between 800 MeV and 1050 MeV");
-  histograms.emplace_back(plot_from_df(df_sliced_5, "proton_mass_cut"));
+  add_plots(plot_from_df(df_sliced_5, "proton_mass_cut"));
   auto df_sliced_6 = df_sliced_5.Filter([](double p) { return p < 0.25; },
                                         {"smear_proton_momentum"},
                                         "Proton momentum less than 250 MeV");
-  histograms.emplace_back(plot_from_df(df_sliced_6, "proton_momentum_cut"));
+  
+  df_sliced_6.Snapshot("cut_flow", "why.root", {"np_system_m"});
+  add_plots(plot_from_df(df_sliced_6, "proton_momentum_cut"));
 
   auto cut_report = df_sliced_6.Report();
 
