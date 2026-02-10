@@ -302,7 +302,6 @@ int main(int argc, char **argv) {
                                         {"smear_proton_momentum"},
                                         "Proton momentum less than 250 MeV");
   
-  df_sliced_6.Snapshot("cut_flow", "why.root", {"np_system_m"});
   add_plots(plot_from_df(df_sliced_6, "proton_momentum_cut"));
 
   auto cut_report = df_sliced_6.Report();
