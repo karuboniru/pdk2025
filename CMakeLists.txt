@@ -200,3 +200,12 @@ target_link_libraries(eff_check
   ROOT::ROOTDataFrame
   event
 )
+
+add_executable(si_check si_check.cxx)
+
+target_link_libraries(si_check
+  ROOT::Physics
+  ROOT::EG
+  ROOT::ROOTDataFrame
+  event
+)
