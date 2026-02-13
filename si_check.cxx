@@ -84,16 +84,37 @@ get_initial_frame_corr(bool genie_mode,
           std::move(chain_corr)};
 }
 
+std::vector<double> log_bin_edges(int count, double max) {
+  std::vector<double> edges(count + 1);
+  double log_min = std::log10(1e-3);
+  double log_max = std::log10(max);
+  double step = (log_max - log_min) / count;
+  for (int i = 0; i <= count; ++i) {
+    edges[i] = std::pow(10, log_min + i * step);
+  }
+  edges[0] = 0.0; // Ensure the first edge is exactly 0
+  return edges;
+}
+
 std::vector<ROOT::RDF::RResultPtr<TH1D>>
 plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
                   const std::string &weight_column,
                   const std::string &suffix_plot = "") {
+  auto edges_5 = log_bin_edges(50, 5.0);
+  auto edges_15 = log_bin_edges(50, 15.0);
   return {
       node.Histo1D({std::format("{}_{}_{}", name, "Q2", suffix_plot).c_str(),
                     ";Q^{2};a.u.", 50, 0.0, 15.0},
                    "Q2", weight_column),
       node.Histo1D({std::format("{}_{}_{}", name, "W", suffix_plot).c_str(),
                     ";W;a.u.", 30, 0.0, 5.0},
+                   "W", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}_log", name, "Q2", suffix_plot).c_str(),
+           ";Q^{2};a.u.", 50, edges_15.data()},
+          "Q2", weight_column),
+      node.Histo1D({std::format("{}_{}_{}", name, "W", suffix_plot).c_str(),
+                    ";W;a.u.", 50, edges_5.data()},
                    "W", weight_column),
       node.Histo1D(
           {std::format("{}_{}_{}", name, "init_p", suffix_plot).c_str(),
