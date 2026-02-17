@@ -311,7 +311,7 @@ int main(int argc, char **argv) {
 
   TFile output_file(output_path.c_str(), "RECREATE");
   for (auto &&hist : histograms) {
-    auto hist_cloned = dynamic_cast<TH1D *>(hist->Clone());
+    auto hist_cloned = dynamic_cast<TH1 *>(hist->Clone());
     hist_cloned->SetDirectory(&output_file);
   }
   output_file.Write();
