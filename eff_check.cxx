@@ -84,14 +84,17 @@ get_initial_frame_corr(bool genie_mode,
           std::move(chain_corr)};
 }
 
-std::vector<ROOT::RDF::RResultPtr<TH1D>> plot_from_df(ROOT::RDF::RNode node,
-                                                      const std::string &name) {
+std::vector<ROOT::RDF::RResultPtr<TH1>> plot_from_df(ROOT::RDF::RNode node,
+                                                     const std::string &name) {
   return {node.Histo1D({name.c_str(), ";p_{N};a.u.", 50, 0.0, 1.0},
                        "initial_proton_p", "weight"),
           node.Histo1D({(name + "M").c_str(), ";M_{#nu N};a.u.", 100, 0.0, 6.0},
                        "np_system_m", "weight"),
           node.Histo1D({(name + "P").c_str(), ";M_{#nu N};a.u.", 100, 0.0, 8.0},
-                       "np_system_p", "weight")};
+                       "np_system_p", "weight"),
+          node.Histo2D({std::format("{}_{}", name, "hist2d_initp_npP").c_str(),
+                        ";p_{N};M_{#nu N};a.u.", 40, 0.0, 1.0, 40, 0.0, 8.0},
+                       "initial_proton_p", "np_system_p", "weight")};
 }
 
 int main(int argc, char **argv) {
@@ -149,9 +152,9 @@ int main(int argc, char **argv) {
     ;
   }
 
-  std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms;
+  std::vector<ROOT::RDF::RResultPtr<TH1>> histograms;
 
-  auto add_plots = [&](const std::vector<ROOT::RDF::RResultPtr<TH1D>> &plots) {
+  auto add_plots = [&](const std::vector<ROOT::RDF::RResultPtr<TH1>> &plots) {
     for (const auto &plot : plots) {
       histograms.emplace_back(plot);
     }
@@ -301,7 +304,7 @@ int main(int argc, char **argv) {
   auto df_sliced_6 = df_sliced_5.Filter([](double p) { return p < 0.25; },
                                         {"smear_proton_momentum"},
                                         "Proton momentum less than 250 MeV");
-  
+
   add_plots(plot_from_df(df_sliced_6, "proton_momentum_cut"));
 
   auto cut_report = df_sliced_6.Report();
