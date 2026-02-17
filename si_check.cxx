@@ -95,7 +95,7 @@ std::vector<double> log_bin_edges(int count, double max) {
   return edges;
 }
 
-std::vector<ROOT::RDF::RResultPtr<TH1D>>
+std::vector<ROOT::RDF::RResultPtr<TH1>>
 plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
                   const std::string &weight_column,
                   const std::string &suffix_plot = "norm") {
@@ -124,12 +124,17 @@ plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
                    "np_system_m", weight_column),
       node.Histo1D({std::format("{}_{}_{}", name, "npP", suffix_plot).c_str(),
                     ";M_{#nu N};a.u.", 100, 0.0, 8.0},
-                   "np_system_p", weight_column)};
+                   "np_system_p", weight_column),
+      node.Histo2D(
+          {std::format("{}_{}_{}", name, "hist2d_initp_npP", suffix_plot)
+               .c_str(),
+           ";p_{N};M_{#nu N};a.u.", 40, 0.0, 1.0, 40, 0.0, 8.0},
+          "initial_proton_p", "np_system_p", weight_column)};
 }
 
-std::vector<ROOT::RDF::RResultPtr<TH1D>>
+std::vector<ROOT::RDF::RResultPtr<TH1>>
 plot_from_df(const ROOT::RDF::RNode &node, const std::string &name) {
-  std::vector<ROOT::RDF::RResultPtr<TH1D>> ret;
+  std::vector<ROOT::RDF::RResultPtr<TH1>> ret;
   for (auto &&obj : plot_from_df_impl(node, name, "weight")) {
     ret.emplace_back(obj);
   }
@@ -217,9 +222,9 @@ int main(int argc, char **argv) {
                 {"weight", "n_capture"});
   }
 
-  std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms;
+  std::vector<ROOT::RDF::RResultPtr<TH1>> histograms;
 
-  auto add_plots = [&](const std::vector<ROOT::RDF::RResultPtr<TH1D>> &plots) {
+  auto add_plots = [&](const std::vector<ROOT::RDF::RResultPtr<TH1>> &plots) {
     for (const auto &plot : plots) {
       histograms.emplace_back(plot);
     }
