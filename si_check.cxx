@@ -17,6 +17,7 @@
 #include <TH1D.h>
 #include <TLegend.h>
 #include <TPie.h>
+#include <TSystem.h>
 #include <TTree.h>
 
 #include <boost/program_options.hpp>
@@ -129,7 +130,40 @@ plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
           {std::format("{}_{}_{}", name, "hist2d_initp_npP", suffix_plot)
                .c_str(),
            ";p_{N};M_{#nu N};a.u.", 40, 0.0, 1.0, 40, 0.0, 8.0},
-          "initial_proton_p", "np_system_p", weight_column)};
+          "initial_proton_p", "np_system_p", weight_column),
+
+      //
+      // before SI
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "total_p_before_SI", suffix_plot)
+               .c_str(),
+           ";p_{tot}^{before SI};a.u.", 100, 0.0, 8.0},
+          "total_p_before_SI", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "total_m_before_SI", suffix_plot)
+               .c_str(),
+           ";M_{tot}^{before SI};a.u.", 100, 0.0, 6.0},
+          "total_m_before_SI", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "W_before_SI", suffix_plot).c_str(),
+           ";W^{before SI};a.u.", 100, 0.0, 6.0},
+          "W_before_SI", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "total_p_after_SI", suffix_plot)
+               .c_str(),
+           ";p_{tot}^{after SI};a.u.", 100, 0.0, 8.0},
+          "total_p_after_SI", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "total_m_after_SI", suffix_plot)
+               .c_str(),
+           ";M_{tot}^{after SI};a.u.", 100, 0.0, 6.0},
+          "total_m_after_SI", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "W_after_SI", suffix_plot).c_str(),
+           ";W^{after SI};a.u.", 100, 0.0, 6.0},
+          "W_after_SI", weight_column),
+
+  };
 }
 
 std::vector<ROOT::RDF::RResultPtr<TH1>>
@@ -138,13 +172,55 @@ plot_from_df(const ROOT::RDF::RNode &node, const std::string &name) {
   for (auto &&obj : plot_from_df_impl(node, name, "weight")) {
     ret.emplace_back(obj);
   }
-  for (auto &&obj : plot_from_df_impl(node, name, "scaled_w", "scaled")) {
-    ret.emplace_back(obj);
-  }
   return ret;
 }
 
+auto calc_tot_p4(const ROOT::RVec<int> &StdHepStatus,
+                 const ROOT::RVecD &StdHepP4) {
+  ROOT::Math::PxPyPzEVector total_momentum{};
+  for (auto &&[status, p4] :
+       std::views::zip(StdHepStatus,
+                       std::ranges::iota_view(StdHepP4.data()) |
+                           std::views::chunk(4) |
+                           std::views::transform([](auto &&chunk) {
+                             return ROOT::Math::PxPyPzEVector{
+                                 *chunk[0], *chunk[1], *chunk[2], *chunk[3]};
+                           })) |
+           std::views::filter(
+               [](auto &&entry) { return std::get<0>(entry) == 1; })) {
+    total_momentum += p4;
+  }
+  return total_momentum;
+}
+
+auto calc_tot_p4_had_system(const ROOT::RVec<int> &StdHepStatus,
+                            const ROOT::RVec<int> &StdHepPdg,
+                            const ROOT::RVecD &StdHepP4) {
+  ROOT::Math::PxPyPzEVector total_momentum{};
+  for (auto &&[status, pdg, p4] :
+       std::views::zip(StdHepStatus, StdHepPdg,
+                       std::ranges::iota_view(StdHepP4.data()) |
+                           std::views::chunk(4) |
+                           std::views::transform([](auto &&chunk) {
+                             return ROOT::Math::PxPyPzEVector{
+                                 *chunk[0], *chunk[1], *chunk[2], *chunk[3]};
+                           })) |
+           std::views::filter([](auto &&entry) {
+             auto &[status, pdg, p4] = entry;
+             if (status != 1)
+               return false;
+             int abs_pdg = std::abs(pdg);
+             return abs_pdg != 11 && abs_pdg != 13 && abs_pdg != 15;
+           })) {
+    total_momentum += p4;
+  }
+  return total_momentum;
+}
+
 int main(int argc, char **argv) {
+  gSystem->ResetSignal(kSigBus);
+  gSystem->ResetSignal(kSigSegmentationViolation);
+  gSystem->ResetSignal(kSigIllegalInstruction);
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
@@ -219,7 +295,33 @@ int main(int argc, char **argv) {
             .Define(
                 "scaled_w",
                 [](double weight, int n_capture) { return weight * n_capture; },
-                {"weight", "n_capture"});
+                {"weight", "n_capture"})
+            .Define("total_p4_before_SI", calc_tot_p4,
+                    {"corr.StdHepStatus", "corr.StdHepP4"})
+            .Define("total_p_before_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.P(); },
+                    {"total_p4_before_SI"})
+            .Define("total_m_before_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"total_p4_before_SI"})
+            .Define("total_p4_had_system_before_SI", calc_tot_p4_had_system,
+                    {"corr.StdHepStatus", "corr.StdHepPdg", "corr.StdHepP4"})
+            .Define("W_before_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"total_p4_before_SI"})
+            .Define("total_p4_after_SI", calc_tot_p4,
+                    {"StdHepStatus", "StdHepP4"})
+            .Define("total_p_after_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.P(); },
+                    {"total_p4_after_SI"})
+            .Define("total_m_after_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"total_p4_after_SI"})
+            .Define("total_p4_had_system_after_SI", calc_tot_p4_had_system,
+                    {"StdHepStatus", "StdHepPdg", "StdHepP4"})
+            .Define("W_after_SI",
+                    [](const ROOT::Math::PxPyPzEVector &p4) { return p4.M(); },
+                    {"total_p4_after_SI"});
   }
 
   std::vector<ROOT::RDF::RResultPtr<TH1>> histograms;
@@ -381,7 +483,7 @@ int main(int argc, char **argv) {
 
   TFile output_file(output_path.c_str(), "RECREATE");
   for (auto &&hist : histograms) {
-    auto hist_cloned = dynamic_cast<TH1D *>(hist->Clone());
+    auto hist_cloned = dynamic_cast<TH1 *>(hist->Clone());
     hist_cloned->SetDirectory(&output_file);
   }
   output_file.Write();
