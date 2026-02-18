@@ -127,18 +127,27 @@ plot_from_df(const ROOT::RDF::RNode &node, const std::string &name) {
 }
 
 auto calc_tot_p4(const ROOT::RVec<int> &StdHepStatus,
+                 const ROOT::RVec<int> &StdHepPdg,
                  const ROOT::RVecD &StdHepP4) {
   ROOT::Math::PxPyPzEVector total_momentum{};
-  for (auto &&[status, p4] :
-       std::views::zip(StdHepStatus,
+  for (auto &&[status, pdg, p4] :
+       std::views::zip(StdHepStatus, StdHepPdg,
                        std::ranges::iota_view(StdHepP4.data()) |
                            std::views::chunk(4) |
                            std::views::transform([](auto &&chunk) {
                              return ROOT::Math::PxPyPzEVector{
                                  *chunk[0], *chunk[1], *chunk[2], *chunk[3]};
                            })) |
-           std::views::filter(
-               [](auto &&entry) { return std::get<0>(entry) == 1; })) {
+           std::views::filter([](auto &&entry) -> bool {
+             auto &[status, pdg, p4] = entry;
+             if (status != 1) {
+               return false;
+             }
+             int abs_pdg = std::abs(pdg);
+             // exclude neutrinos and nucleons
+             return abs_pdg != 2212 && abs_pdg != 2112 && abs_pdg != 12 &&
+                    abs_pdg != 14 && abs_pdg != 16;
+           })) {
     total_momentum += p4;
   }
   return total_momentum;
@@ -161,7 +170,10 @@ auto calc_tot_p4_had_system(const ROOT::RVec<int> &StdHepStatus,
              if (status != 1)
                return false;
              int abs_pdg = std::abs(pdg);
-             return abs_pdg != 11 && abs_pdg != 13 && abs_pdg != 15;
+             // exclude neutrinos, charged leptons and nucleons
+             return abs_pdg != 11 && abs_pdg != 13 && abs_pdg != 15 &&
+                    abs_pdg != 2212 && abs_pdg != 2112 && abs_pdg != 12 &&
+                    abs_pdg != 14 && abs_pdg != 16;
            })) {
     total_momentum += p4;
   }
@@ -189,7 +201,9 @@ int main(int argc, char **argv) {
   }
 
   tracker_df =
-      tracker_df.Define("total_p4", calc_tot_p4, {"StdHepStatus", "StdHepP4"})
+      tracker_df
+          .Define("total_p4", calc_tot_p4,
+                  {"StdHepStatus", "StdHepPdg", "StdHepP4"})
           .Define("total_p",
                   [](const ROOT::Math::PxPyPzEVector &p4) { return p4.P(); },
                   {"total_p4"})
@@ -212,11 +226,9 @@ int main(int argc, char **argv) {
   auto total_weight = tracker_df.Sum("weight");
   // histograms.emplace_back(plot_from_df(tracker_df, "all"));
   add_plots(plot_from_df(tracker_df, "all"));
-  auto df_sliced_1 =
-      tracker_df
-          .Filter(
-              [](const size_t nrings) { return nrings == 2 || nrings == 3; },
-              {"nrings"}, "2 or 3 rings in detector");
+  auto df_sliced_1 = tracker_df.Filter(
+      [](const size_t nrings) { return nrings == 2 || nrings == 3; },
+      {"nrings"}, "2 or 3 rings in detector");
   add_plots(plot_from_df(df_sliced_1, "ring_cut"));
   auto df_sliced2 = df_sliced_1.Filter(
       [](const size_t nrings, const size_t nshower_rings) {
