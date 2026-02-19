@@ -22,10 +22,10 @@
 
 #include "EvtTracker2event.h"
 #include "cmdline.h"
+#include "common_tools.hxx"
 #include "commondefine.h"
 #include "event.h"
 #include "smear.h"
-#include "common_tools.hxx"
 
 ROOT::RDF::RResultPtr<TH1D> make_plot(auto df, ROOT::RDF::TH1DModel model,
                                       const std::string &varname,
@@ -82,7 +82,8 @@ int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
-  auto [input_files,input_corr, output_path, genie_mode] = parse_command_line(argc, argv);
+  auto [input_files, input_corr, output_path, genie_mode] =
+      parse_command_line(argc, argv);
   auto nfile = input_files.size();
 
   auto tracker_df =
@@ -192,6 +193,7 @@ int main(int argc, char **argv) {
   to_snapshot.push_back("channel");
 
   auto signals = FilterSignalKinematics(df_epi_with_vars);
+  auto &total_signal = signals[0];
   auto weight_sum_signal = signals |
                            std::views::transform([](ROOT::RDF::RNode &node) {
                              return node.Sum("weight");
@@ -211,11 +213,15 @@ int main(int argc, char **argv) {
   for (auto &p_var : p_list) {
     histograms.emplace_back(
         make_plot(df_epi_with_vars, momentum_model, p_var, "epi_"));
+    histograms.emplace_back(
+        make_plot(total_signal, momentum_model, p_var, "signal_"));
   }
 
   for (auto &m_var : mass_list) {
     histograms.emplace_back(
         make_plot(df_epi_with_vars, inv_mass_model, m_var, "epi_"));
+    histograms.emplace_back(
+        make_plot(total_signal, inv_mass_model, m_var, "signal_"));
   }
 
   signals[0].Snapshot("outtree", output_path + ".tree.root", to_snapshot);
