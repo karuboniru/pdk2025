@@ -109,15 +109,23 @@ plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
           "total_p", weight_column),
       node.Histo1D(
           {std::format("{}_{}_{}", name, "total_p_limit", suffix_plot).c_str(),
-           ";p_{tot}^{after SI};a.u.", 10, 0.0, 0.5},
+           ";p_{tot}^{after SI};a.u.", 20, 0.0, 0.5},
           "total_p", weight_column),
       node.Histo1D(
           {std::format("{}_{}_{}", name, "total_m", suffix_plot).c_str(),
            ";M_{tot}^{after SI};a.u.", 40, 0.0, 6.0},
           "total_m", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "total_m_limit", suffix_plot).c_str(),
+           ";M_{tot}^{after SI};a.u.", 20, 0.0, 1.5},
+          "total_m", weight_column),
       node.Histo1D({std::format("{}_{}_{}", name, "W", suffix_plot).c_str(),
                     ";W^{after SI};a.u.", 40, 0.0, 6.0},
                    "W", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "W_limit", suffix_plot).c_str(),
+           ";W^{after SI};a.u.", 20, 0.0, 1.5},
+          "W", weight_column),
   };
 }
 
