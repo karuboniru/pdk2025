@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
                            std::ranges::to<std::vector>();
 
   ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
-                                      0.0, 1.0};
+                                      0.0, 1.4};
   ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 400,
                                       0.0, 1.0};
   std::vector<ROOT::RDF::RResultPtr<TH1D>> histograms{};
