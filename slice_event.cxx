@@ -224,6 +224,7 @@ int main(int argc, char **argv) {
                          "nrings",
                          "smear_proton_mass",
                          "smear_proton_momentum",
+                         "n_capture"
                      });
 
   {
