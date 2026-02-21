@@ -57,11 +57,18 @@ int main(int argc, char **argv) {
   initializeGaussianSmearStrategy();
   ROOT::EnableImplicitMT(guess_nproc_from_env());
   TH1::AddDirectory(false);
-  auto [input_files, input_corr,output_path, genie_mode] = parse_command_line(argc, argv);
+  auto [input_files, input_corr, output_path, genie_mode] =
+      parse_command_line(argc, argv);
 
   auto tracker_df = get_initial_frame(genie_mode, input_files);
   try {
     tracker_df = tracker_df.Define("weight", []() { return 1.0; }, {});
+  } catch (...) {
+    // weight already exists
+  }
+
+  try {
+    tracker_df = tracker_df.Define("n_capture", []() { return 0.0; }, {});
   } catch (...) {
     // weight already exists
   }
@@ -213,19 +220,10 @@ int main(int argc, char **argv) {
   ROOT::RDF::Experimental::AddProgressBar(df_sliced);
 
   df_sliced.Snapshot("sample_event", output_path,
-                     {
-                         "E_lepton",
-                         "E_pi0",
-                         "cos_theta_lepton_pi0",
-                         "weight",
-                         "raw_proton_momentum",
-                         "raw_mass_proton",
-                         "is_transparent",
-                         "nrings",
-                         "smear_proton_mass",
-                         "smear_proton_momentum",
-                         "n_capture"
-                     });
+                     {"E_lepton", "E_pi0", "cos_theta_lepton_pi0", "weight",
+                      "raw_proton_momentum", "raw_mass_proton",
+                      "is_transparent", "nrings", "smear_proton_mass",
+                      "smear_proton_momentum", "n_capture"});
 
   {
     std::unique_ptr<TFile, TFileDeleter> output_file(
