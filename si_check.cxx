@@ -126,6 +126,10 @@ plot_from_df_impl(ROOT::RDF::RNode node, const std::string &name,
           {std::format("{}_{}_{}", name, "W_limit", suffix_plot).c_str(),
            ";W^{after SI};a.u.", 20, 0.0, 1.5},
           "W", weight_column),
+      node.Histo1D(
+          {std::format("{}_{}_{}", name, "n_capture", suffix_plot).c_str(),
+           ";n_cap;a.u.", 40, -0.5, 39.5},
+          "n_capture", weight_column),
   };
 }
 
