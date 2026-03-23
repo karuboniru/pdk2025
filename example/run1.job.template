@@ -1,0 +1,72 @@
+!--------------------------------------------------------- -*- fortran -*- ----
+! sample jobcard for external particle source
+!------------------------------------------------------------------------------
+! please visit the GiBUU homepage for further information:
+! https://gibuu.hepforge.org
+!------------------------------------------------------------------------------
+
+! file: ./inputOutput/input.f90
+&input
+      eventtype       =          22
+      numEnsembles    =          1000
+      numTimeSteps    =         0
+      delta_T         =  0.1    ! time step size [fm]
+      freezeRealParticles     = T
+!      localEnsemble   = T !!! External does not work yet with this
+      length_perturbative = 200
+      printParticleVectors = T
+!      DoPrLevel(1) = .FALSE. ! set this for production runs
+!      DoPrLevel(2) = .FALSE. ! set this for production runs
+      path_To_Input   = '/sps/juno/yqiyu/GiBUU2025/buuinput'
+      version=2025
+/
+
+! file: ./density/nucleus.f90
+&target
+! oxygen-16
+      target_A = 16
+      target_Z =  8
+/
+
+! file: ./init/initExternal.f90
+&externalSystem
+      inputFile = 'run1.inp'
+      DoPerturbative =  T
+      NumberingScheme = 2
+/
+
+! file: ./density/density.f90
+&initDensity
+      densitySwitch   = 2 ! 2: static density
+/
+
+! file: ./density/pauliBlocking.f90
+&initPauli
+      pauliSwitch     = 2 ! 0: no Pauli blocking, 1: dynamic, 2: analytic
+/
+
+! file: ./collisions/twoBodyReactions/HiEnergy/DoCollTools.f90
+&pythia
+      PARP(91)=0.44
+/
+
+! file: ./analysis/EventOutputAnalysis.f90
+&EventOutput
+      WritePerturbativeParticles = F
+      WriteRealParticles = T
+/
+
+! file: ./analysis/sourceAnalysis/residue.f90:
+&residue_Input
+      DetermineResidue = .false.
+/
+
+! file: ./numerics/random.f90
+&initRandom
+      SEED=@RANDON_SEED@                ! Seed for the random number
+/
+
+! file: ./init/initNucPhaseSpace.f90
+&initNucleus_in_PS
+  useCdA = T
+/

@@ -14,9 +14,9 @@ make
 make si_check
 ```
 
-Dependencies: ROOT (Physics, EG, Minuit2, ROOTDataFrame), EvtGen, Boost (program_options). `EVTGEN_DATA_DIR` must be set in the environment.
+Dependencies: ROOT (Physics, EG, Minuit2, ROOTDataFrame, Tree), EvtGen, Boost (program_options, headers), nlohmann_json. `EVTGEN_DATA_DIR` must be set in the environment.
 
-The `DATA_PATH` macro is defined at compile time as `${CMAKE_SOURCE_DIR}/data`, pointing to the `data/` directory for pion angular/momentum distributions and EvtGen decay files.
+The `DATA_PATH` macro is defined at compile time as `${CMAKE_SOURCE_DIR}/data`, pointing to the `data/` directory for pion angular/momentum distributions, EvtGen decay files, and the GiBUU↔PDG ID mapping (`gibuudata.dat`).
 
 There are no tests or lint commands.
 
@@ -64,6 +64,15 @@ Each root-level `.cxx` file produces one executable:
 | `dump` | Debug dump of event contents |
 | `freeproton` | Free proton interaction analysis |
 | `fluxint` | Neutrino flux integration |
+
+The two **gen_tool** executables (sources in `gen_tool/`) generate signal input for the analysis pipeline:
+
+| Executable | Purpose |
+|---|---|
+| `gibuu-pdk` | Decay nucleons from GiBUU phase-space output into two daughters; write GiBUU perturbative input and pre-FSI detail file |
+| `pert_to_root` | Merge pre-FSI decay kinematics with GiBUU post-FSI output into an `outtree` ROOT TTree |
+
+Example configs and job templates for the generation pipeline live in `example/`.
 
 ### Data Flow
 

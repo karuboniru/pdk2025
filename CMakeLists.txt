@@ -10,6 +10,7 @@ set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 
 find_package(ROOT REQUIRED)
 find_package(EvtGen REQUIRED)
+find_package(nlohmann_json REQUIRED)
 include_directories(
   ${EVTGEN_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}/include
@@ -208,4 +209,23 @@ target_link_libraries(si_check
   ROOT::EG
   ROOT::ROOTDataFrame
   event
+)
+
+# gen_tool: GiBUU-based nucleon decay event generation pipeline
+add_executable(gibuu-pdk gen_tool/gibuu-pdk.cxx)
+target_link_libraries(gibuu-pdk
+  ROOT::Physics
+  ROOT::EG
+  Boost::headers
+  nlohmann_json::nlohmann_json
+)
+
+add_executable(pert_to_root gen_tool/pert_to_root.cxx)
+target_link_libraries(pert_to_root
+  ROOT::Core
+  ROOT::Physics
+  ROOT::EG
+  ROOT::Tree
+  Boost::headers
+  nlohmann_json::nlohmann_json
 )

@@ -1,0 +1,17 @@
+{
+    "in": "init_state/RealParticles_Final_ALL.dat",
+    "out": "epi.inp",
+    "out_detail": "epi.detail.txt",
+    "particles": [
+        {
+            "pdgid": 111,
+            "gibuuid": 101,
+            "output": true
+        },
+        {
+            "pdgid": -11,
+            "gibuuid": 901,
+            "output": false
+        }
+    ]
+}

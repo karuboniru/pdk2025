@@ -4,7 +4,7 @@ Neutrino interaction analysis framework for proton decay (PDK) sensitivity studi
 
 ## Compilation
 
-**Dependencies:** ROOT (≥ 6.x, with Physics, EG, Minuit2, ROOTDataFrame), EvtGen, Boost (program_options), C++23 compiler.
+**Dependencies:** ROOT (≥ 6.x, with Physics, EG, Minuit2, ROOTDataFrame, Tree), EvtGen, Boost (program_options + headers), nlohmann_json, C++23 compiler.
 
 ```bash
 mkdir build && cd build
@@ -195,6 +195,127 @@ Integrates a flux file and prints the total flux to stdout.
 ```
 
 Input is a two-column text file (energy in GeV, flux value).
+
+---
+
+---
+
+## Event Generation (gen_tool)
+
+The `gen_tool/` sources implement a 4-step GiBUU-based pipeline that generates realistic nucleon decay signal events with nuclear FSI effects. The output ROOT TTree is directly usable as input to `record_pdk` and the analysis executables.
+
+```
+GiBUU run 1       gibuu-pdk         GiBUU run 2        pert_to_root
+(run1.job)        (epi.json)        (run2.job)
+O-16, sample  →   decay p →     →  O-15, propagate →  result.root
+nucleon phase     π⁰ + e⁺,         π⁰ through FSI
+space             gen. GiBUU input
+```
+
+### `gibuu-pdk`
+
+Reads GiBUU real-particle output (nucleon phase space in O-16), isotropically decays each nucleon into two daughters, and writes a GiBUU perturbative input file for the hadronic daughters plus a detail file recording full pre-FSI decay kinematics.
+
+```bash
+./gibuu-pdk <config.json>
+./gibuu-pdk example/epi.json
+```
+
+**Config file** (`example/epi.json` shows p → π⁰ + e⁺):
+
+```json
+{
+    "in":         "init_state/RealParticles_Final_ALL.dat",
+    "out":        "epi.inp",
+    "out_detail": "epi.detail.txt",
+    "particles": [
+        { "pdgid": 111,  "gibuuid": 101, "output": true  },
+        { "pdgid": -11,  "gibuuid": 901, "output": false }
+    ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `in` | GiBUU `RealParticles_Final_ALL.dat` from run 1 |
+| `out` | GiBUU perturbative input for run 2 |
+| `out_detail` | Pre-FSI decay kinematics file (input to `pert_to_root`) |
+| `particles[i].pdgid` | PDG ID of the i-th daughter |
+| `particles[i].gibuuid` | GiBUU particle ID of the i-th daughter |
+| `particles[i].output` | `false` for leptons — they don't undergo FSI and are excluded from `out` |
+
+---
+
+### `pert_to_root`
+
+Merges the pre-FSI detail file with GiBUU perturbative final-state output into a ROOT TTree. Uses `data/gibuudata.dat` (compiled-in path via `DATA_PATH`) to map GiBUU (id, charge) pairs to PDG codes.
+
+```bash
+./pert_to_root <epi.detail.txt> <PertParticles_Final_mom.dat> <output.root>
+./pert_to_root epi.detail.txt final_state/PertParticles_Final_mom.dat result.root
+```
+
+**Output TTree** (`outtree`) branches:
+
+| Branch | Type | Description |
+|---|---|---|
+| `nparticles` | `int` | Particles per event |
+| `P[N][4]` | `double[N][4]` | 4-momenta `[E, px, py, pz]` in GeV |
+| `pdg[N]` | `int[N]` | PDG IDs |
+| `status[N]` | `int[N]` | 0 = initial nucleon, 1 = post-FSI, 2 = pre-FSI decay product |
+
+Leptons (|PDG| 11–16) with status 2 are automatically duplicated as status 1.
+
+---
+
+### GiBUU Job Configuration
+
+Example jobcard templates are in `example/`. The `@RANDON_SEED@` placeholder is substituted at runtime.
+
+**Run 1** (`example/run1.job.template`) — nuclear phase space sampling:
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `target_A/Z` | 16 / 8 | Oxygen-16 |
+| `numEnsembles` | 1000 | Parallel ensembles |
+| `numTimeSteps` | 0 | No time evolution — sample position/momentum only |
+| `DoPerturbative` | T | Enable perturbative mode |
+| `WriteRealParticles` | T | Output nucleon 4-momentum and position |
+
+**Run 2** (`example/run2.job.template`) — hadronic FSI propagation:
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `target_A/Z` | 15 / 7 | Nitrogen-15 (N-16 with the decayed proton removed) |
+| `numEnsembles` | 6000 | More ensembles for perturbative statistics |
+| `numTimeSteps` | 100 | Full time evolution (10 fm/c) |
+| `EventFormat` | 4 | Outputs `PertParticles_Final_mom.dat` |
+| `HiTail` | T | Include high-momentum tail in nuclear phase space |
+
+---
+
+### Full Pipeline
+
+```bash
+# 1. GiBUU run 1 — sample nucleon phase space in O-16
+sed "s|@RANDON_SEED@|$RANDOM|g" example/run1.job.template > run1.job
+mkdir init_state && cd init_state && ln -s ../example/run1.inp run1.inp
+$GIBUU < ../run1.job && cd ..
+
+# 2. Decay the nucleon, generate GiBUU perturbative input
+./gibuu-pdk example/epi.json
+# produces: epi.inp, epi.detail.txt
+
+# 3. GiBUU run 2 — propagate daughters through O-15 (FSI)
+sed "s|@RANDON_SEED@|$RANDOM|g" example/run2.job.template > run2.job
+mkdir final_state && cd final_state && ln -sf ../epi.inp run2.inp
+$GIBUU < ../run2.job && cd ..
+
+# 4. Convert to ROOT
+./pert_to_root epi.detail.txt final_state/PertParticles_Final_mom.dat result.root
+```
+
+See `example/run.sh` for a complete SLURM array job that orchestrates all four steps across 2048 tasks.
 
 ---
 
