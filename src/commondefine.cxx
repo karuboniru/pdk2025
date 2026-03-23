@@ -44,43 +44,43 @@ DefineForEPi(ROOT::RDF::RNode all_with_vars_in) {
   for (const auto &name : name_p4_pairs) {
     all_with_vars = all_with_vars
                         .Define(std::format("true_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.P();
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.truth.P();
                                 },
                                 {name})
                         .Define(std::format("true_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.M();
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.truth.M();
                                 },
                                 {name})
                         .Define(std::format("true_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Theta() * to_deg;
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.truth.Theta() * to_deg;
                                 },
                                 {name})
                         .Define(std::format("true_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.first.Phi() * to_deg;
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.truth.Phi() * to_deg;
                                 },
                                 {name})
                         .Define(std::format("smared_{}_p", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.P();
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.smeared.P();
                                 },
                                 {name})
                         .Define(std::format("smared_{}_m", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.M();
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.smeared.M();
                                 },
                                 {name})
                         .Define(std::format("smared_{}_theta", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Theta() * to_deg;
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.smeared.Theta() * to_deg;
                                 },
                                 {name})
                         .Define(std::format("smared_{}_phi", name),
-                                [](const pair_momentum_t &p4_pair) {
-                                  return p4_pair.second.Phi() * to_deg;
+                                [](const momentum_pair &p4_pair) {
+                                  return p4_pair.smeared.Phi() * to_deg;
                                 },
                                 {name});
     for (const auto &suffix : std::to_array({"p", "m", "theta", "phi"})) {
@@ -97,18 +97,18 @@ DefineForEPi(ROOT::RDF::RNode all_with_vars_in) {
     all_with_vars =
         all_with_vars
             .Define(std::format("true_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.first.Vect().Unit().Dot(
-                                 p4_pair2.first.Vect().Unit())) *
+                    [](const momentum_pair &p4_pair1,
+                       const momentum_pair &p4_pair2) {
+                      return std::acos(p4_pair1.truth.Vect().Unit().Dot(
+                                 p4_pair2.truth.Vect().Unit())) *
                              to_deg;
                     },
                     {var1, var2})
             .Define(std::format("smared_{}_{}_angle", var1, var2),
-                    [](const pair_momentum_t &p4_pair1,
-                       const pair_momentum_t &p4_pair2) {
-                      return std::acos(p4_pair1.second.Vect().Unit().Dot(
-                                 p4_pair2.second.Vect().Unit())) *
+                    [](const momentum_pair &p4_pair1,
+                       const momentum_pair &p4_pair2) {
+                      return std::acos(p4_pair1.smeared.Vect().Unit().Dot(
+                                 p4_pair2.smeared.Vect().Unit())) *
                              to_deg;
                     },
                     {var1, var2});

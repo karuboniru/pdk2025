@@ -124,10 +124,10 @@ int main(int argc, char **argv) {
                       return EventRec{};
                     }
                     const auto &rec = rec_opt.value();
-                    auto lepton = rec.lepton.m_pair.first;
-                    auto gamma_1 = rec.leading_gamma.m_pair.first;
+                    auto lepton = rec.lepton.m_pair.truth;
+                    auto gamma_1 = rec.leading_gamma.m_pair.truth;
                     auto gamma_2 = rec.subleading_gamma.transform(
-                        [](const RingInfo &ring) { return ring.m_pair.first; });
+                        [](const RingInfo &ring) { return ring.m_pair.truth; });
                     return EventRec{lepton, gamma_1, gamma_2};
                   },
                   {"rec_raw"})
@@ -138,10 +138,10 @@ int main(int argc, char **argv) {
                   return EventRec{};
                 }
                 const auto &rec = rec_opt.value();
-                auto lepton = rec.lepton.m_pair.second;
-                auto gamma_1 = rec.leading_gamma.m_pair.second;
+                auto lepton = rec.lepton.m_pair.smeared;
+                auto gamma_1 = rec.leading_gamma.m_pair.smeared;
                 auto gamma_2 = rec.subleading_gamma.transform(
-                    [](const RingInfo &ring) { return ring.m_pair.second; });
+                    [](const RingInfo &ring) { return ring.m_pair.smeared; });
                 return EventRec{lepton, gamma_1, gamma_2};
               },
               {"rec_raw"})

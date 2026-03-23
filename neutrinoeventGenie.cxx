@@ -164,12 +164,12 @@ int main(int argc, char **argv) {
                   {"rec"})
           .Define("pi0_system",
                   [](const RecResult &rec) {
-                    return rec.rec_pi0.value_or(pair_momentum_t{});
+                    return rec.rec_pi0.value_or(momentum_pair{});
                   },
                   {"rec"})
           .Define("epi_system",
-                  [](const pair_momentum_t &electron,
-                     const pair_momentum_t &pi0_system) {
+                  [](const momentum_pair &electron,
+                     const momentum_pair &pi0_system) {
                     return electron + pi0_system;
                   },
                   {"electron", "pi0_system"});

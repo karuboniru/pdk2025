@@ -244,15 +244,15 @@ int main(int argc, char **argv) {
           //         [](RecResult rec) -> std::optional<RecResult> {
           // if (rec.subleading_gamma.has_value()) {
           //   auto kf_result =
-          //       kf_pi0({rec.leading_gamma.m_pair.second,
-          //               rec.subleading_gamma->m_pair.second});
+          //       kf_pi0({rec.leading_gamma.m_pair.smeared,
+          //               rec.subleading_gamma->m_pair.smeared});
           //   if (kf_result.has_value()) {
           //     auto new_pi0 =
           //         kf_result.value()[0] + kf_result.value()[1];
-          //     rec.rec_pi0->second = new_pi0;
-          //     rec.leading_gamma.m_pair.second =
+          //     rec.rec_pi0->smeared = new_pi0;
+          //     rec.leading_gamma.m_pair.smeared =
           //     kf_result.value()[0];
-          //     rec.subleading_gamma->m_pair.second =
+          //     rec.subleading_gamma->m_pair.smeared =
           //         kf_result.value()[1];
           //     return rec;
           //   }
@@ -280,13 +280,13 @@ int main(int argc, char **argv) {
                   {"rec"})
           .Define("pi0_system",
                   [](const RecResult &rec) {
-                    return rec.rec_pi0.value_or(pair_momentum_t{});
+                    return rec.rec_pi0.value_or(momentum_pair{});
                   },
                   {"rec"})
           .Define("epi_system",
                   [](const RecResult &rec) {
                     return rec.lepton.m_pair +
-                           rec.rec_pi0.value_or(pair_momentum_t{});
+                           rec.rec_pi0.value_or(momentum_pair{});
                   },
                   {"rec"});
 

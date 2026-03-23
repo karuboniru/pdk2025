@@ -12,14 +12,10 @@
 
 using momentum_t = ROOT::Math::PxPyPzEVector;
 
-using pair_momentum_t =
-    std::pair<momentum_t, momentum_t>;
-using momentum_pair = pair_momentum_t;
-
-// struct momentum_pair {
-//   ROOT::Math::PxPyPzEVector true_momentum;
-//   ROOT::Math::PxPyPzEVector momentum;
-// };
+struct momentum_pair {
+  momentum_t truth;
+  momentum_t smeared;
+};
 
 momentum_pair operator+(const momentum_pair &a, const momentum_pair &b);
 
@@ -90,7 +86,7 @@ public:
   // const std::set<int> &get_ids_det() const;
 
   const ROOT::Math::PxPyPzEVector &get_leading(int id) const;
-  const pair_momentum_t &get_leading_det(int id) const;
+  const momentum_pair &get_leading_det(int id) const;
 
   [[nodiscard]] std::string get_channelname_no_nucleon() const;
   [[nodiscard]] std::string get_channelname() const;
@@ -113,7 +109,7 @@ public:
 
 private:
   std::unordered_multimap<int, ROOT::Math::PxPyPzEVector> in, out, post;
-  std::unordered_multimap<int, pair_momentum_t> in_detector;
+  std::unordered_multimap<int, momentum_pair> in_detector;
   std::set<int> ids_post;
   std::vector<RingInfo> rings_in_detector;
   size_t n_michel_electrons{0};

@@ -49,13 +49,12 @@ const ROOT::Math::PxPyPzEVector &NeutrinoEvent::get_leading(int id) const {
   return *leading;
 }
 
-const std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector> &
+const momentum_pair &
 NeutrinoEvent::get_leading_det(int id) const {
 
-  const std::pair<ROOT::Math::PxPyPzEVector, ROOT::Math::PxPyPzEVector>
-      *leading = nullptr;
+  const momentum_pair *leading = nullptr;
   for (const auto &p : det_range(id)) {
-    if (leading == nullptr || p.second.second.P() > leading->second.P()) {
+    if (leading == nullptr || p.second.smeared.P() > leading->smeared.P()) {
       leading = &p.second;
     }
   }
@@ -130,25 +129,25 @@ void NeutrinoEvent::finalize_and_decay_in_detector() {
     for (auto &&[pdg, momentum] : decayed_particles) {
       auto stg = GetSmearStrategy(pdg);
       auto smared_momentum = stg ? stg->do_smearing(momentum) : momentum;
-      pair_momentum_t momentum_pair{momentum, smared_momentum};
-      in_detector.insert({pdg, momentum_pair});
+      momentum_pair mp{momentum, smared_momentum};
+      in_detector.insert({pdg, mp});
       if (std::abs(pdg) == 11 ||
           pdg == 22) { // e+ , e- , gamma -> shower-like ring
-        rings_in_detector.emplace_back(momentum_pair, pdg, true);
+        rings_in_detector.emplace_back(mp, pdg, true);
       }
       if (std::abs(pdg) == 13 &&
           momentum.P() > 0.118) { // mu+ , mu- -> track-like ring, with Michel
-        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+        rings_in_detector.emplace_back(mp, pdg, false);
         n_michel_electrons++;
       }
       if (pdg == 211 &&
           momentum.P() > 0.156) { // pi+ -> track-like ring, with Michel
-        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+        rings_in_detector.emplace_back(mp, pdg, false);
         n_michel_electrons++;
       }
       if (pdg == -211 &&
           momentum.P() > 0.156) { // pi- -> track-like ring, without Michel
-        rings_in_detector.emplace_back(momentum_pair, pdg, false);
+        rings_in_detector.emplace_back(mp, pdg, false);
       }
       if (std::abs(pdg) == 321) {
         // will be rings from kaon decay.... but ignore for now
@@ -173,8 +172,8 @@ void NeutrinoEvent::post_process_rings_in_detector() {
   for (auto &&[id1, ring1] : rings_in_detector | std::views::enumerate) {
     for (auto &&[id2, ring2] : rings_in_detector | std::views::enumerate |
                                    std::views::drop(id1 + 1)) {
-      const auto &&ring1_dir_true = ring1.m_pair.first.Vect().Unit();
-      const auto &&ring2_dir_true = ring2.m_pair.first.Vect().Unit();
+      const auto &&ring1_dir_true = ring1.m_pair.truth.Vect().Unit();
+      const auto &&ring2_dir_true = ring2.m_pair.truth.Vect().Unit();
       double cos_angle = ring1_dir_true.Dot(ring2_dir_true);
       const double cos_threshold = std::cos(15.0 * M_PI / 180.0);
       if (cos_angle > cos_threshold) {
@@ -207,13 +206,13 @@ void NeutrinoEvent::post_process_rings_in_detector() {
        rings_in_detector | std::views::filter([](const RingInfo &r) {
          return r.is_shower && !r.to_remove;
        })) {
-    auto smeared = ring.m_pair.second;
-    ring.m_pair.second =
+    auto smeared = ring.m_pair.smeared;
+    ring.m_pair.smeared =
         ROOT::Math::PxPyPzMVector(smeared.x(), smeared.y(), smeared.z(), 0.0);
   }
 
   for (auto &ring : rings_in_detector) {
-    if (ring.m_pair.first.P() < 0.030) {
+    if (ring.m_pair.truth.P() < 0.030) {
       ring.to_remove = true;
     }
   }
@@ -260,7 +259,7 @@ RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
       auto sum_p4_rec_pi0 = ROOT::Math::PxPyPzEVector{};
       for (size_t j = 0; j < 3; ++j) {
         if (j != i) {
-          sum_p4_rec_pi0 += rings_in_detector[j].m_pair.second;
+          sum_p4_rec_pi0 += rings_in_detector[j].m_pair.smeared;
         }
       }
       // accpet the candidate if its mass is closer to pi0 mass
@@ -274,9 +273,9 @@ RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
     auto &gamma2 = rings_in_detector[(best_lepton_candidate + 2) % 3];
     result.lepton = rings_in_detector[best_lepton_candidate];
     result.leading_gamma =
-        gamma1.m_pair.first.P() > gamma2.m_pair.first.P() ? gamma1 : gamma2;
+        gamma1.m_pair.truth.P() > gamma2.m_pair.truth.P() ? gamma1 : gamma2;
     result.subleading_gamma =
-        gamma1.m_pair.first.P() > gamma2.m_pair.first.P() ? gamma2 : gamma1;
+        gamma1.m_pair.truth.P() > gamma2.m_pair.truth.P() ? gamma2 : gamma1;
     result.rec_pi0 = gamma1.m_pair + gamma2.m_pair;
   } break;
   case 2: {
@@ -299,5 +298,5 @@ RecResult NeutrinoEvent::Rec_lpi_event(bool is_mu_pi) const {
 }
 
 momentum_pair operator+(const momentum_pair &a, const momentum_pair &b) {
-  return {a.first + b.first, a.second + b.second};
+  return {a.truth + b.truth, a.smeared + b.smeared};
 }

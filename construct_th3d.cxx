@@ -159,17 +159,17 @@ int main(int argc, char **argv) {
                   {"rec"})
           .Define(
               "E_lepton",
-              [](const momentum_pair &momentum) { return momentum.second.E(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.E(); },
               {"electron"})
           .Define(
               "E_pi0",
-              [](const momentum_pair &momentum) { return momentum.second.E(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.E(); },
               {"pi0_system"})
           .Define(
               "cos_theta_lepton_pi0",
               [](const momentum_pair &lepton, const momentum_pair &pi0_system) {
-                return cos_theta_between_vectors(lepton.second,
-                                                 pi0_system.second);
+                return cos_theta_between_vectors(lepton.smeared,
+                                                 pi0_system.smeared);
               },
               {"electron", "pi0_system"});
 

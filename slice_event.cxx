@@ -159,17 +159,17 @@ int main(int argc, char **argv) {
                   {"rec"})
           .Define(
               "E_lepton",
-              [](const momentum_pair &momentum) { return momentum.second.E(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.E(); },
               {"electron"})
           .Define(
               "E_pi0",
-              [](const momentum_pair &momentum) { return momentum.second.E(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.E(); },
               {"pi0_system"})
           .Define(
               "cos_theta_lepton_pi0",
               [](const momentum_pair &lepton, const momentum_pair &pi0_system) {
-                return cos_theta_between_vectors(lepton.second,
-                                                 pi0_system.second);
+                return cos_theta_between_vectors(lepton.smeared,
+                                                 pi0_system.smeared);
               },
               {"electron", "pi0_system"})
           .Define(
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
               {"EventRecord"})
           .Define(
               "pi0_mass",
-              [](const momentum_pair &momentum) { return momentum.second.M(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.M(); },
               {"pi0_system"})
           .Filter(
               [](const double pi0_mass, const size_t nrings) {
@@ -187,9 +187,9 @@ int main(int argc, char **argv) {
               {"pi0_mass", "nrings"}, "Pi0 mass between 85 MeV and 185 MeV")
           .Define("rec_proton_system",
                   [](const RecResult &rec) {
-                    return rec.lepton.m_pair.second +
-                           rec.leading_gamma.m_pair.second +
-                           rec.subleading_gamma.value_or({}).m_pair.second;
+                    return rec.lepton.m_pair.smeared +
+                           rec.leading_gamma.m_pair.smeared +
+                           rec.subleading_gamma.value_or({}).m_pair.smeared;
                   },
                   {"rec"})
           .Define("smear_proton_momentum",

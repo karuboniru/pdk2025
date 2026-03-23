@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
                   {"rec"})
           .Define(
               "pi0_mass",
-              [](const momentum_pair &momentum) { return momentum.second.M(); },
+              [](const momentum_pair &momentum) { return momentum.smeared.M(); },
               {"pi0_system"})
           .Filter(
               [](const double pi0_mass, const size_t nrings) {
@@ -288,9 +288,9 @@ int main(int argc, char **argv) {
       df_sliced_4
           .Define("rec_proton_system",
                   [](const RecResult &rec) {
-                    return rec.lepton.m_pair.second +
-                           rec.leading_gamma.m_pair.second +
-                           rec.subleading_gamma.value_or({}).m_pair.second;
+                    return rec.lepton.m_pair.smeared +
+                           rec.leading_gamma.m_pair.smeared +
+                           rec.subleading_gamma.value_or({}).m_pair.smeared;
                   },
                   {"rec"})
           .Define("smear_proton_momentum",
