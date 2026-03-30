@@ -71,6 +71,7 @@ The two **gen_tool** executables (sources in `gen_tool/`) generate signal input 
 |---|---|
 | `gibuu-pdk` | Decay nucleons from GiBUU phase-space output into two daughters; write GiBUU perturbative input and pre-FSI detail file |
 | `pert_to_root` | Merge pre-FSI decay kinematics with GiBUU post-FSI output into an `outtree` ROOT TTree |
+| `gibuu2root` | Convert GiBUU `FinalEvents.dat` text output into a StdHep-layout ROOT TTree (`out_tree`); used in the atmospheric neutrino generation pipeline |
 
 Example configs and job templates for the generation pipeline live in `example/`.
 

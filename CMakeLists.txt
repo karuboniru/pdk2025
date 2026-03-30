@@ -229,3 +229,14 @@ target_link_libraries(pert_to_root
   Boost::headers
   nlohmann_json::nlohmann_json
 )
+
+# gibuu2root: convert GiBUU FinalEvents.dat to a StdHep-layout ROOT TTree.
+# Used in the atmospheric neutrino generation pipeline (see example_atmo/).
+add_executable(gibuu2root gen_tool/gibuu2root.cxx)
+target_compile_definitions(gibuu2root PRIVATE BASEPATH="${CMAKE_SOURCE_DIR}")
+target_link_libraries(gibuu2root
+  ROOT::Core
+  ROOT::Physics
+  ROOT::Tree
+  Boost::headers
+)
