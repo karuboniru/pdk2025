@@ -23,9 +23,9 @@ if [ -f success ]; then
 fi
 
 
-sed "s|@RANDON_SEED@|$RANDOM|g" ../run1.job.template >> run1.job
+sed -e "s|@RANDON_SEED@|$RANDOM|g" -e "s|@GIBUU_BASE@|$gibuu_base|g" ../run1.job.template >> run1.job
 ln -sf ../run1.inp run1.inp
-sed "s|@RANDON_SEED@|$RANDOM|g" ../run2.job.template >> run2.job
+sed -e "s|@RANDON_SEED@|$RANDOM|g" -e "s|@GIBUU_BASE@|$gibuu_base|g" ../run2.job.template >> run2.job
 ln -sf ../epi.json epi.json
 
 mkdir init_state -p

@@ -17,7 +17,7 @@
       printParticleVectors = T
 !      DoPrLevel(1) = .FALSE. ! set this for production runs
 !      DoPrLevel(2) = .FALSE. ! set this for production runs
-      path_To_Input   = '/sps/juno/yqiyu/GiBUU2025/buuinput'
+      path_To_Input   = '@GIBUU_BASE@/buuinput'
       version=2025
 /
 
