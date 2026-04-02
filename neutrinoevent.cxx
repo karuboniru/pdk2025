@@ -200,6 +200,12 @@ int main(int argc, char **argv) {
                            }) |
                            std::ranges::to<std::vector>();
 
+  auto weight_sig_sq =
+      signals[0]
+          .Define("weight_squared",
+                  [](double weight) { return weight * weight; }, {"weight"})
+          .Sum("weight_squared");
+
   ROOT::RDF::TH1DModel inv_mass_model{"inv_mass_epip_system", "inv mass", 400,
                                       0.0, 1.4};
   ROOT::RDF::TH1DModel momentum_model{"inv_mass_epip_system", "momentum", 400,
@@ -299,4 +305,9 @@ int main(int argc, char **argv) {
     signal.Report();
     std::println("");
   }
+
+  std::println("weight sample, weight^2 sample, weight passed, weight^2 "
+               "passed: {}, {}, {}, {}",
+               weight_sum.GetValue(), weight_square_sum.GetValue(),
+               weight_sum_signal[0].GetValue(), weight_sig_sq.GetValue());
 }

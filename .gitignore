@@ -2,4 +2,4 @@ build
 .cache
 /*.root
 /*.pdf
-example/*/
+example*/*/
