@@ -355,12 +355,22 @@ int main(int argc, char **argv) {
     histograms.emplace_back(
         make_plot(all_nofsi, momentum_model, p_var, "noint_"));
   }
+  
+  for (auto &p_var : p_list) {
+    histograms.emplace_back(
+        make_plot(filtered_signal, momentum_model, p_var, "signal_"));
+  }
 
   for (auto &m_var : mass_list) {
     histograms.emplace_back(
         make_plot(df_epi_with_vars, inv_mass_model, m_var, "epi_"));
     histograms.emplace_back(
         make_plot(all_nofsi, inv_mass_model, m_var, "noint_"));
+  }
+  
+  for (auto &m_var : mass_list) {
+    histograms.emplace_back(
+        make_plot(filtered_signal, inv_mass_model, m_var, "signal_"));
   }
 
   auto angle_list = std::to_array({"true_lead_photon_sublead_photon_angle",
